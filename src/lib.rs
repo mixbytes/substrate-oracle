@@ -9,6 +9,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+mod period_handler;
+mod external_value;
 mod oracle;
 
 pub trait Trait: system::Trait

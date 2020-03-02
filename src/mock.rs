@@ -41,11 +41,13 @@ impl system::Trait for Test {
 	type ModuleToIndex = ();
 	type AccountData = ();
 	type OnNewAccount = ();
-	type OnKilledAccount = ();
+        type OnReapAccount = ();
 }
+
 impl Trait for Test {
 	type Event = ();
 }
+
 pub type TemplateModule = Module<Test>;
 
 // This function basically just builds a genesis storage key/value store according to

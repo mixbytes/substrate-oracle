@@ -51,7 +51,7 @@ package = "pallet-generic-asset"
 
 [dependencies.tablescore]
 default-features = false
-path = "../tablescore"
+git = "https://github.com/mixbytes/substrate-tablescore"
 package = "pallet-tablescore"
 
 [dependencies.rstd]
