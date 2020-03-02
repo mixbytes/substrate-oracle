@@ -1,0 +1,77 @@
+[package]
+authors = ["sadsnake sadsnake@mixbytes.io"]
+edition = '2018'
+name = 'pallet-oracle'
+version = '0.0.1'
+
+[dependencies]
+safe-mix = { default-features = false, version = '1.0.0' }
+
+[dependencies.codec]
+package = "parity-scale-codec"
+version = "1.0.0"
+default-features = false
+features = ["derive"]
+
+
+[dependencies.system]
+default-features = false
+git = "https://github.com/paritytech/substrate"
+rev = "992aea815a753da256a9c0bff053df408532df02"
+package = "frame-system"
+
+[dependencies.sp-arithmetic]
+default-features = false
+git = "https://github.com/paritytech/substrate"
+rev = "992aea815a753da256a9c0bff053df408532df02"
+
+[dev-dependencies.sp-core]
+default-features = false
+git = "https://github.com/paritytech/substrate"
+rev = "992aea815a753da256a9c0bff053df408532df02"
+package = "sp-core"
+
+[dev-dependencies.sp-io]
+default-features = false
+git = "https://github.com/paritytech/substrate"
+rev = "992aea815a753da256a9c0bff053df408532df02"
+package = "sp-io"
+
+[dependencies.sp-runtime]
+default-features = false
+git = "https://github.com/paritytech/substrate"
+rev = "992aea815a753da256a9c0bff053df408532df02"
+package = "sp-runtime"
+
+[dependencies.assets]
+default-features = false
+git = "https://github.com/paritytech/substrate"
+rev = "992aea815a753da256a9c0bff053df408532df02"
+package = "pallet-generic-asset"
+
+[dependencies.tablescore]
+default-features = false
+path = "../tablescore"
+package = "pallet-tablescore"
+
+[dependencies.rstd]
+default-features = false
+git = "https://github.com/paritytech/substrate"
+rev = "992aea815a753da256a9c0bff053df408532df02"
+package = "sp-std"
+
+[dependencies.frame-support]
+default-features = false
+git = "https://github.com/paritytech/substrate"
+rev = "992aea815a753da256a9c0bff053df408532df02"
+package = "frame-support"
+
+[features]
+default = ['std']
+std = [
+    'codec/std',
+    'frame-support/std',
+    'safe-mix/std',
+    'system/std',
+    'assets/std',
+]
