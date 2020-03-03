@@ -5,6 +5,8 @@ use sp_arithmetic::traits::{BaseArithmetic, CheckedAdd, One};
 use sp_runtime::traits::Member;
 use system::ensure_signed;
 
+use crate::oracle::OracleError as InternalError;
+
 #[cfg(test)]
 mod mock;
 
@@ -17,7 +19,10 @@ mod period_handler;
 
 use crate::period_handler::PeriodHandler;
 
-pub trait Trait: system::Trait + timestamp::Trait + tablescore::Trait
+type AccountId<T> = <T as system::Trait>::AccountId;
+
+pub trait Trait:
+    system::Trait + timestamp::Trait + tablescore::Trait<TargetType = AccountId<Self>>
 {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     type OracleId: Default + Parameter + Member + Copy + BaseArithmetic + CheckedAdd + One;
@@ -31,7 +36,7 @@ type Oracle<T> = crate::oracle::Oracle<
     <T as tablescore::Trait>::TableId,
     <T as Trait>::ValueType,
     Moment<T>,
-    <T as system::Trait>::AccountId,
+    AccountId<T>,
 >;
 
 decl_storage! {
@@ -47,8 +52,12 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as system::Trait>::AccountId,
+        OracleId = <T as Trait>::OracleId,
+        ValueType = <T as Trait>::ValueType,
+        ValueId = u8,
     {
-        OracleUpdated(u32, AccountId),
+        OracleCreated(OracleId, AccountId),
+        OracleUpdated(OracleId, ValueId, ValueType),
     }
 );
 
@@ -57,6 +66,31 @@ decl_error! {
         NoneValue,
         OracleIdOverflow,
         WrongPeriods,
+        WrongValuesCount,
+        WrongValueId,
+        NotAggregationTime,
+        NotCalculateTime,
+        NotEnoughSources,
+        NotEnoughValues,
+        NotCalculatedValue,
+        AccountPermissionDenied,
+    }
+}
+
+impl<T: Trait> From<InternalError> for Error<T>
+{
+    fn from(error: InternalError) -> Self
+    {
+        match error
+        {
+            InternalError::FewSources(_exp, _act) => Error::<T>::NotEnoughSources,
+            InternalError::FewPushedValue(_exp, _act) => Error::<T>::NotEnoughValues,
+            InternalError::WrongValuesCount(_exp, _act) => Error::<T>::WrongValuesCount,
+            InternalError::WrongValueId(_asset) => Error::<T>::WrongValueId,
+            InternalError::UncalculatedValue(_asset) => Error::<T>::NotCalculatedValue,
+            InternalError::SourcePermissionDenied => Error::<T>::AccountPermissionDenied,
+            InternalError::CalculationError => Error::<T>::NoneValue,
+        }
     }
 }
 
@@ -72,17 +106,77 @@ decl_module! {
             calculate_period: Moment<T>,
             aggregate_period: Moment<T>,
             asset_id: AssetId<T>,
-            assets_name: Vec<Vec<u8>>,
+            values_names: Vec<Vec<u8>>,
         ) -> dispatch::DispatchResult
         {
             let who = ensure_signed(origin)?;
             let now = timestamp::Module::<T>::get();
             let period = PeriodHandler::new(now, calculate_period, aggregate_period).map_err(|_| Error::<T>::WrongPeriods)?;
 
-            let table = tablescore::Module::<T>::create(who, asset_id, source_limit, Some(name.clone()))?;
+            let table = tablescore::Module::<T>::create(who.clone(), asset_id, source_limit, Some(name.clone()))?;
 
             let id = Self::get_next_oracle_id()?;
-            Oracles::<T>::insert(id, Oracle::<T>::new(name, table, period, source_limit, assets_name));
+            Oracles::<T>::insert(id, Oracle::<T>::new(name, table, period, source_limit, values_names));
+
+            Self::deposit_event(RawEvent::OracleCreated(id, who));
+
+            Ok(())
+        }
+
+        pub fn push(origin,
+            oracle_id: T::OracleId,
+            values: Vec<T::ValueType>) -> dispatch::DispatchResult
+        {
+            let who = ensure_signed(origin)?;
+            let now = timestamp::Module::<T>::get();
+
+            let oracle = Oracles::<T>::get(oracle_id);
+
+            if oracle.period_handler.is_sources_update_needed(now)
+            {
+                Self::update_accounts(oracle_id).map_err(Error::<T>::from)?;
+            }
+
+            if !oracle.period_handler.is_aggregate_time(now)
+            {
+                Err(Error::<T>::NotAggregationTime)?;
+            }
+
+            Oracles::<T>::mutate(oracle_id, |oracle| {
+                oracle.push_values(
+                    &who,
+                    now,
+                    values.into_iter(),
+                )
+            })
+            .map_err(Error::<T>::from)?;
+
+            Ok(())
+        }
+
+        pub fn calculate(origin,
+            oracle_id: T::OracleId,
+            value_id: u8) -> dispatch::DispatchResult
+        {
+            ensure_signed(origin)?;
+            let now = timestamp::Module::<T>::get();
+            let oracle = Oracles::<T>::get(oracle_id);
+
+            if oracle.period_handler.is_sources_update_needed(now)
+            {
+                Self::update_accounts(oracle_id).map_err(Error::<T>::from)?;
+            }
+
+            if !oracle.is_calculate_time(value_id as usize, now).map_err(Error::<T>::from)?
+            {
+                Err(Error::<T>::NotCalculateTime)?;
+            }
+
+            let new_value = Oracles::<T>::mutate(oracle_id, |oracle| {
+                oracle.calculate_value(value_id as usize, now)
+            }).map_err(Error::<T>::from)?;
+
+            Self::deposit_event(RawEvent::OracleUpdated(oracle_id, value_id, new_value));
 
             Ok(())
         }
@@ -102,6 +196,16 @@ impl<T: Trait> Module<T>
                 Ok(result)
             }
             None => Err(Error::<T>::OracleIdOverflow),
+        })
+    }
+
+    fn update_accounts(oracle_id: T::OracleId) -> Result<Vec<AccountId<T>>, InternalError>
+    {
+        Oracles::<T>::mutate(oracle_id, |oracle| {
+            let table = tablescore::Module::<T>::tables(oracle.get_table());
+            let accounts = oracle.update_accounts(table.get_head().into_iter().cloned())?;
+
+            Ok(accounts.into_iter().cloned().collect())
         })
     }
 }

@@ -66,6 +66,12 @@ git = "https://github.com/paritytech/substrate"
 rev = "992aea815a753da256a9c0bff053df408532df02"
 package = "frame-support"
 
+[dependencies.timestamp]
+default-features = false
+git = "https://github.com/paritytech/substrate"
+rev = "992aea815a753da256a9c0bff053df408532df02"
+package = "pallet-timestamp"
+
 [features]
 default = ['std']
 std = [
@@ -74,4 +80,5 @@ std = [
     'safe-mix/std',
     'system/std',
     'assets/std',
+    'timestamp/std',
 ]

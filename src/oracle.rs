@@ -1,5 +1,5 @@
 use codec::{Decode, Encode};
-use rstd::cmp::{Ord, Ordering};
+use rstd::cmp::Ord;
 use rstd::collections::btree_map::BTreeMap;
 use rstd::prelude::Vec;
 use sp_arithmetic::traits::BaseArithmetic;
@@ -15,9 +15,9 @@ pub enum OracleError
 {
     FewSources(usize, usize),
     FewPushedValue(usize, usize),
-    WrongAssetsCount(usize, usize),
-    WrongAssetId(usize),
-    UncalculatedAsset(usize),
+    WrongValuesCount(usize, usize),
+    WrongValueId(usize),
+    UncalculatedValue(usize),
     SourcePermissionDenied,
     CalculationError,
 }
@@ -48,7 +48,7 @@ impl<
         SourceId: Default + Ord,
     > Oracle<TableId, ValueType, Moment, SourceId>
 {
-    fn get_table(&self) -> &TableId
+    pub fn get_table(&self) -> &TableId
     {
         &self.table
     }
@@ -95,7 +95,7 @@ impl<
         }
         else
         {
-            Err(OracleError::WrongAssetId(ex_asset_id))
+            Err(OracleError::WrongValueId(ex_asset_id))
         }
     }
 
@@ -197,7 +197,7 @@ impl<
         }
         else
         {
-            Err(OracleError::UncalculatedAsset(ex_asset_id))
+            Err(OracleError::UncalculatedValue(ex_asset_id))
         }
     }
 
