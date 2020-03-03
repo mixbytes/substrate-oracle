@@ -279,8 +279,7 @@ mod tests
         rstd::iter::repeat(value)
             .take(get_assets_names().len())
             .collect()
-    }
-
+    } 
     fn create_oracle() -> Oracle
     {
         Oracle::new(
@@ -368,10 +367,7 @@ mod tests
         assert_ok!(oracle.push_values(&DAN, 17, vec![128, 1, 1, 1, 1, 5476387].into_iter()));
         assert_ok!(oracle.push_values(&EVE, 19, vec![126, 1, 1, 1, 1, 5476394].into_iter()));
 
-        assert_eq!(
-            oracle.calculate_value(0, 20),
-            Err(OE::FewPushedValue(4, 3))
-        );
+        assert_eq!(oracle.calculate_value(0, 20), Err(OE::FewPushedValue(4, 3)));
         assert_eq!(oracle.pull_value(0), Err(OE::UncalculatedAsset(0)));
 
         assert_ok!(oracle.push_values(&ALICE, 20, vec![123, 1, 1, 1, 1, 5476378].into_iter()));
