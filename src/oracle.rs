@@ -14,9 +14,10 @@ type RawString = Vec<u8>;
 pub enum OracleError
 {
     FewSources(usize, usize),
-    FewCommitedValue(usize, usize),
+    FewPushedValue(usize, usize),
     WrongAssetsCount(usize, usize),
     WrongAssetId(usize),
+    UncalculatedAsset(usize),
     SourcePermissionDenied,
     CalculationError,
 }
@@ -86,9 +87,16 @@ impl<
         self.names.len()
     }
 
-    pub fn is_ex_asset_correct(&self, ex_asset_id: usize) -> bool
+    pub fn is_ex_asset_id_correct(&self, ex_asset_id: usize) -> Result<(), OracleError>
     {
-        ex_asset_id < self.get_assets_count()
+        if ex_asset_id < self.get_assets_count()
+        {
+            Ok(())
+        }
+        else
+        {
+            Err(OracleError::WrongAssetId(ex_asset_id))
+        }
     }
 
     pub fn is_sources_enough(&self) -> bool
@@ -96,12 +104,12 @@ impl<
         (self.sources.len() as u8) >= self.source_limit
     }
 
-    pub fn is_calculate_time(&self, ex_asset_id: usize, now: Moment) -> bool
+    pub fn is_calculate_time(&self, ex_asset_id: usize, now: Moment) -> Result<bool, OracleError>
     {
-        self.is_ex_asset_correct(ex_asset_id)
-            && self
-                .period_handler
-                .is_calculate_time(self.values[ex_asset_id].last_changed, now)
+        self.is_ex_asset_id_correct(ex_asset_id)?;
+        Ok(self
+            .period_handler
+            .is_calculate_time(self.values[ex_asset_id].last_changed, now))
     }
 
     pub fn add_assets(&mut self, name: RawString)
@@ -165,10 +173,7 @@ impl<
 
     fn get_actual_values(&self, ex_asset_id: usize) -> Result<Vec<&ValueType>, OracleError>
     {
-        if !self.is_ex_asset_correct(ex_asset_id)
-        {
-            return Err(OracleError::WrongAssetId(ex_asset_id));
-        }
+        self.is_ex_asset_id_correct(ex_asset_id)?;
 
         Ok(self
             .sources
@@ -179,8 +184,28 @@ impl<
             .collect())
     }
 
-    pub fn pull_value(&mut self, ex_asset_id: usize, now: Moment)
-        -> Result<ValueType, OracleError>
+    pub fn pull_value(&mut self, ex_asset_id: usize) -> Result<(ValueType, Moment), OracleError>
+    {
+        self.is_ex_asset_id_correct(ex_asset_id)?;
+
+        if let (Some(value), Some(moment)) = (
+            self.values[ex_asset_id].value,
+            self.values[ex_asset_id].last_changed,
+        )
+        {
+            Ok((value, moment))
+        }
+        else
+        {
+            Err(OracleError::UncalculatedAsset(ex_asset_id))
+        }
+    }
+
+    pub fn calculate_value(
+        &mut self,
+        ex_asset_id: usize,
+        now: Moment,
+    ) -> Result<ValueType, OracleError>
     {
         if !self.is_sources_enough()
         {
@@ -194,7 +219,7 @@ impl<
 
         if self.source_limit as usize > assets.len()
         {
-            return Err(OracleError::FewCommitedValue(
+            return Err(OracleError::FewPushedValue(
                 self.source_limit as usize,
                 assets.len(),
             ));
@@ -211,6 +236,10 @@ impl<
             }
             _ => Err(OracleError::CalculationError),
         }
+        .map(|res| {
+            self.values[ex_asset_id].update(res, now);
+            res
+        })
     }
 }
 
@@ -219,16 +248,16 @@ mod tests
 {
     type Oracle = super::Oracle<u32, u32, u32, u32>;
     type PeriodHandler = super::PeriodHandler<u32>;
-    use super::OracleError;
+    type OE = super::OracleError;
 
-    const ALICE: u32 = 0;
-    const BOB: u32 = 1;
-    const CHUCK: u32 = 2;
-    const CRAIG: u32 = 3;
-    const DAN: u32 = 4;
-    const EVE: u32 = 5;
-    const ERING: u32 = 6;
-    const CAROL: u32 = 7;
+    const ALICE: u32 = 100;
+    const BOB: u32 = 132;
+    const CHUCK: u32 = 224;
+    const CRAIG: u32 = 342;
+    const DAN: u32 = 424;
+    const EVE: u32 = 235;
+    const ERING: u32 = 643;
+    const CAROL: u32 = 199;
 
     const ACCOUNTS: [u32; 8] = [ALICE, BOB, CHUCK, CRAIG, DAN, EVE, ERING, CAROL];
 
@@ -282,14 +311,10 @@ mod tests
     {
         let mut oracle = create_oracle();
 
-        let accounts = oracle.update_accounts(ALICE..=CAROL);
+        let accounts = oracle.update_accounts(ACCOUNTS.to_vec().into_iter());
 
         assert!(accounts.is_ok());
-        assert!(accounts
-            .unwrap()
-            .into_iter()
-            .zip(ACCOUNTS.iter())
-            .all(|(l, r)| l == r));
+        assert_eq!(accounts.unwrap().len(), ACCOUNTS.len());
 
         assert_eq!(oracle.sources.len(), ACCOUNTS.len());
 
@@ -320,7 +345,7 @@ mod tests
 
         for i in 0..get_assets_names().len()
         {
-            assert_eq!(oracle.pull_value(i, 14), Ok(10));
+            assert_eq!(oracle.calculate_value(i, 14), Ok(10));
         }
     }
 
@@ -336,22 +361,23 @@ mod tests
         let mut oracle = create_oracle();
 
         oracle
-            .update_accounts(ALICE..=CAROL)
+            .update_accounts(ACCOUNTS.to_vec().into_iter())
             .expect("Update accounts error.");
 
-        assert_ok!(oracle.push_values(&BOB, 11, vec![124, 235, 457, 790, 1012, 1113].into_iter()));
-        assert_ok!(oracle.push_values(&DAN, 17, vec![128, 239, 462, 795, 1016, 1116].into_iter()));
-        assert_ok!(oracle.push_values(&EVE, 19, vec![126, 237, 460, 793, 1014, 1115].into_iter()));
+        assert_ok!(oracle.push_values(&BOB, 11, vec![124, 1, 1, 1, 1, 5476346].into_iter()));
+        assert_ok!(oracle.push_values(&DAN, 17, vec![128, 1, 1, 1, 1, 5476387].into_iter()));
+        assert_ok!(oracle.push_values(&EVE, 19, vec![126, 1, 1, 1, 1, 5476394].into_iter()));
 
         assert_eq!(
-            oracle.pull_value(0, 20),
-            Err(OracleError::FewCommitedValue(4, 3))
+            oracle.calculate_value(0, 20),
+            Err(OE::FewPushedValue(4, 3))
         );
+        assert_eq!(oracle.pull_value(0), Err(OE::UncalculatedAsset(0)));
 
-        assert_ok!(oracle.push_values(
-            &ALICE,
-            10,
-            vec![123, 234, 456, 789, 1011, 1112].into_iter()
-        ));
+        assert_ok!(oracle.push_values(&ALICE, 20, vec![123, 1, 1, 1, 1, 5476378].into_iter()));
+
+        assert_eq!(oracle.calculate_value(0, 20), Ok(125));
+        assert_eq!(oracle.calculate_value(5, 20), Ok(5476382));
+        assert_eq!(oracle.pull_value(5), Ok((5476382, 20)));
     }
 }
