@@ -81,7 +81,8 @@ pub type OracleModule = Module<Test>;
 pub type TablescoreModule = tablescore::Module<Test>;
 pub type TimestampModule = timestamp::Module<Test>;
 
-type AccountId = <Test as system::Trait>::AccountId;
+pub type AccountId = <Test as system::Trait>::AccountId;
+pub type TableId = <Test as tablescore::Trait>::TableId;
 
 pub const ALICE: AccountId = 123;
 pub const BOB: AccountId = 225;
@@ -94,7 +95,7 @@ pub const JUDY: AccountId = 839;
 pub const OSCAR: AccountId = 754;
 pub const ERIN: AccountId = 635;
 
-type Balance = <Test as assets::Trait>::Balance;
+pub type Balance = <Test as assets::Trait>::Balance;
 pub const ASSET_ID: <Test as assets::Trait>::AssetId = 0;
 pub const TOTAL_BALANCE: Balance = 10000;
 

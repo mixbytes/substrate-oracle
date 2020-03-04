@@ -1,8 +1,10 @@
 // Tests to be written here
 
-use crate::{mock::*, Error};
+use crate::mock::*;
 use frame_support::dispatch;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok};
+
+type Error = crate::Error<Test>;
 
 fn create_oracle(source_limit: u8) -> dispatch::DispatchResult
 {
@@ -29,8 +31,7 @@ fn self_votes(table_id: TableId, accounts_votes: Vec<(AccountId, Balance)>)
     });
 }
 
-#[test]
-fn create()
+#[test] fn create()
 {
     new_test_ext().execute_with(|| {
         assert_ok!(create_oracle(4));
@@ -47,6 +48,13 @@ fn update_accounts()
 
         TimestampModule::set_timestamp(100);
 
+        self_votes(table_id, vec![(ALICE, 1)]);
+
+        assert_err!(
+            OracleModule::push(Origin::signed(ALICE), oracle_id, get_asset_value(0, 10)),
+            Error::NotEnoughSources
+        );
+
         self_votes(
             table_id,
             vec![
@@ -59,7 +67,6 @@ fn update_accounts()
             ],
         );
 
-        let denied = || Error::<Test>::AccountPermissionDenied;
         let push = |account, moment, offset| {
             OracleModule::push(
                 Origin::signed(account),
@@ -72,10 +79,10 @@ fn update_accounts()
         assert_ok!(push(BOB, 0, 10));
         assert_ok!(push(CAROL, 0, 20));
 
-        assert_noop!(push(JUDY, 0, 20), denied());
-        assert_noop!(push(OSCAR, 0, 20), denied());
-        assert_noop!(push(ALICE, 0, 20), denied());
-        assert_noop!(push(ERIN, 0, 20), denied());
+        assert_err!(push(JUDY, 0, 20), Error::AccountPermissionDenied);
+        assert_err!(push(OSCAR, 0, 20), Error::AccountPermissionDenied);
+        assert_err!(push(ALICE, 0, 20), Error::AccountPermissionDenied);
+        assert_err!(push(ERIN, 0, 20), Error::AccountPermissionDenied);
 
         self_votes(table_id, vec![(ALICE, 100), (OSCAR, 100), (JUDY, 100)]);
 
@@ -85,9 +92,21 @@ fn update_accounts()
         assert_ok!(push(OSCAR, 0, 10));
         assert_ok!(push(JUDY, 0, 20));
 
-        assert_noop!(push(EVE, 0, 20), denied());
-        assert_noop!(push(BOB, 0, 20), denied());
-        assert_noop!(push(CAROL, 0, 20), denied());
-        assert_noop!(push(ERIN, 0, 20), denied());
+        assert_err!(push(EVE, 0, 20), Error::AccountPermissionDenied);
+        assert_err!(push(BOB, 0, 20), Error::AccountPermissionDenied);
+        assert_err!(push(CAROL, 0, 20), Error::AccountPermissionDenied);
+        assert_err!(push(ERIN, 0, 20), Error::AccountPermissionDenied);
+    });
+}
+
+#[test]
+fn aggregation()
+{
+    new_test_ext().execute_with(|| {
+        let oracle_id = OracleModule::next_oracle_id();
+        let table_id = TablescoreModule::next_table_id();
+        assert_ok!(create_oracle(3));
+
+        TimestampModule::set_timestamp(100);
     });
 }
