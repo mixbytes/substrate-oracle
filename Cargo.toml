@@ -6,6 +6,7 @@ version = '0.0.1'
 
 [dependencies]
 safe-mix = { default-features = false, version = '1.0.0' }
+serde = { version = "1.0.101", optional = true }
 
 [dependencies.codec]
 package = "parity-scale-codec"

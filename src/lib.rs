@@ -1,8 +1,9 @@
+#![feature(rustc_private)] // decl_storage extra genesis bug
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch, Parameter};
 use sp_arithmetic::traits::{BaseArithmetic, CheckedAdd, One};
-use sp_runtime::traits::Member;
+use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
 use system::ensure_signed;
 
 use crate::oracle::OracleError as InternalError;
@@ -25,7 +26,7 @@ pub trait Trait:
     system::Trait + timestamp::Trait + tablescore::Trait<TargetType = AccountId<Self>>
 {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type OracleId: Default + Parameter + Member + Copy + BaseArithmetic + CheckedAdd + One;
+    type OracleId: Default + Parameter + Member + Copy + BaseArithmetic + MaybeSerializeDeserialize;
     type ValueType: Default + Parameter + Member + Copy + BaseArithmetic;
 }
 
@@ -40,10 +41,9 @@ type Oracle<T> = crate::oracle::Oracle<
 >;
 
 decl_storage! {
-    trait Store for Module<T: Trait> as TemplateModule
+    trait Store for Module<T: Trait> as OracleModule
     {
         pub Oracles get(fn oracles): map hasher(blake2_256) T::OracleId => Oracle<T>;
-
         OracleIdSequence get(fn next_oracle_id): T::OracleId;
     }
 }
@@ -133,7 +133,8 @@ decl_module! {
 
             let oracle = Oracles::<T>::get(oracle_id);
 
-            if oracle.period_handler.is_sources_update_needed(now)
+            if oracle.sources.is_empty() 
+                || oracle.period_handler.is_sources_update_needed(now)
             {
                 Self::update_accounts(oracle_id)
                     .map_err(Error::<T>::from)?;

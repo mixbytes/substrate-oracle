@@ -1,4 +1,4 @@
-use crate::{Module, Trait};
+use crate::Module;
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_runtime::{
@@ -22,7 +22,7 @@ parameter_types! {
     pub const MaximumBlockWeight: Weight = 1024;
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-        pub const MinimumPeriod: u64 = 5;
+        pub const MinimumPeriod: u64 = 1;
 }
 
 impl system::Trait for Test
@@ -77,14 +77,101 @@ impl crate::Trait for Test
     type ValueType = u128;
 }
 
-pub type MockModule = Module<Test>;
+pub type OracleModule = Module<Test>;
+pub type TablescoreModule = tablescore::Module<Test>;
+pub type TimestampModule = timestamp::Module<Test>;
 
-// This function basically just builds a genesis storage key/value store according to
-// our desired mockup.
+type AccountId = <Test as system::Trait>::AccountId;
+
+pub const ALICE: AccountId = 123;
+pub const BOB: AccountId = 225;
+pub const CAROL: AccountId = 326;
+pub const CHUNK: AccountId = 436;
+pub const IVAN: AccountId = 528;
+pub const EVE: AccountId = 931;
+pub const FRANK: AccountId = 878;
+pub const JUDY: AccountId = 839;
+pub const OSCAR: AccountId = 754;
+pub const ERIN: AccountId = 635;
+
+type Balance = <Test as assets::Trait>::Balance;
+pub const ASSET_ID: <Test as assets::Trait>::AssetId = 0;
+pub const TOTAL_BALANCE: Balance = 10000;
+
+pub const ORACLE_NAME: &str = "test";
+
+pub const BTC_USD: &str = "BTC/USD";
+pub const AUD_USD: &str = "AUD/USD";
+pub const EUR_USD: &str = "EUR/USD";
+pub const GBP_USD: &str = "GBP/USD";
+pub const USD_CAD: &str = "USD/CAD";
+pub const USD_CHF: &str = "USD/CHF";
+pub const USD_JPY: &str = "USD/JPY";
+
+pub const EXCHANGES: [&str; 7] = [
+    BTC_USD, AUD_USD, EUR_USD, GBP_USD, USD_CAD, USD_CHF, USD_JPY,
+];
+
+pub const BTC_USD_DATA: [Balance; 4] = [878779, 886967, 886967, 886967];
+pub const AUD_USD_DATA: [Balance; 4] = [878779, 886967, 886967, 886967];
+pub const EUR_USD_DATA: [Balance; 4] = [878779, 886967, 886967, 886967];
+pub const GBP_USD_DATA: [Balance; 4] = [878779, 886967, 886967, 886967];
+pub const USD_CAD_DATA: [Balance; 4] = [878779, 886967, 886967, 886967];
+pub const USD_CHF_DATA: [Balance; 4] = [878779, 886967, 886967, 886967];
+pub const USD_JPY_DATA: [Balance; 4] = [878779, 886967, 886967, 886967];
+
+pub const EXTERNAL_DATA: [[Balance; 4]; 7] = [
+    BTC_USD_DATA,
+    AUD_USD_DATA,
+    EUR_USD_DATA,
+    GBP_USD_DATA,
+    USD_CAD_DATA,
+    USD_CHF_DATA,
+    USD_JPY_DATA,
+];
+
+pub const AGGREGATION_PERIOD: <Test as timestamp::Trait>::Moment = 60 * 9;
+pub const CALCULATION_PERIOD: <Test as timestamp::Trait>::Moment = 60 * 10;
+
+pub fn to_raw(input: &'static str) -> Vec<u8>
+{
+    input.to_owned().as_bytes().to_vec()
+}
+
+pub fn get_asset_names() -> Vec<Vec<u8>>
+{
+    EXCHANGES.iter().map(|pair| to_raw(pair)).collect()
+}
+
+pub fn get_asset_value(moment: usize, offset: Balance) -> Vec<Balance>
+{
+    EXTERNAL_DATA
+        .iter()
+        .map(|data| data[moment])
+        .map(|asset_value| {
+            asset_value + offset
+        })
+        .collect()
+}
+
 pub fn new_test_ext() -> sp_io::TestExternalities
 {
-    system::GenesisConfig::default()
+    let mut t = system::GenesisConfig::default()
         .build_storage::<Test>()
-        .unwrap()
-        .into()
+        .unwrap();
+
+    assets::GenesisConfig::<Test> {
+        assets: vec![ASSET_ID],
+        initial_balance: TOTAL_BALANCE,
+        endowed_accounts: vec![
+            ALICE, BOB, CAROL, CHUNK, IVAN, EVE, FRANK, JUDY, OSCAR, ERIN,
+        ],
+        next_asset_id: 0,
+        spending_asset_id: ASSET_ID,
+        staking_asset_id: ASSET_ID,
+    }
+    .assimilate_storage(&mut t)
+    .unwrap();
+
+    t.into()
 }
