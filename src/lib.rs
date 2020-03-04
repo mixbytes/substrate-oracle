@@ -111,7 +111,8 @@ decl_module! {
         {
             let who = ensure_signed(origin)?;
             let now = timestamp::Module::<T>::get();
-            let period = PeriodHandler::new(now, calculate_period, aggregate_period).map_err(|_| Error::<T>::WrongPeriods)?;
+            let period = PeriodHandler::new(now, calculate_period, aggregate_period)
+                .map_err(|_| Error::<T>::WrongPeriods)?;
 
             let table = tablescore::Module::<T>::create(who.clone(), asset_id, source_limit, Some(name.clone()))?;
 
@@ -134,7 +135,8 @@ decl_module! {
 
             if oracle.period_handler.is_sources_update_needed(now)
             {
-                Self::update_accounts(oracle_id).map_err(Error::<T>::from)?;
+                Self::update_accounts(oracle_id)
+                    .map_err(Error::<T>::from)?;
             }
 
             if !oracle.period_handler.is_aggregate_time(now)

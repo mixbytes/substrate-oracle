@@ -227,7 +227,7 @@ impl<
 
         match get_median(assets)
         {
-            Some(Median::Value(value)) => Ok(value.clone()),
+            Some(Median::Value(value)) => Ok(*value),
             Some(Median::Pair(left, right)) =>
             {
                 let sum = *left + *right;
@@ -368,7 +368,7 @@ mod tests
         assert_ok!(oracle.push_values(&EVE, 19, vec![126, 1, 1, 1, 1, 5476394].into_iter()));
 
         assert_eq!(oracle.calculate_value(0, 20), Err(OE::FewPushedValue(4, 3)));
-        assert_eq!(oracle.pull_value(0), Err(OE::UncalculatedAsset(0)));
+        assert_eq!(oracle.pull_value(0), Err(OE::UncalculatedValue(0)));
 
         assert_ok!(oracle.push_values(&ALICE, 20, vec![123, 1, 1, 1, 1, 5476378].into_iter()));
 
