@@ -59,6 +59,7 @@ fn update_accounts()
             ],
         );
 
+        let denied = || Error::<Test>::AccountPermissionDenied;
         let push = |account, moment, offset| {
             OracleModule::push(
                 Origin::signed(account),
@@ -71,12 +72,10 @@ fn update_accounts()
         assert_ok!(push(BOB, 0, 10));
         assert_ok!(push(CAROL, 0, 20));
 
-        let denide = || Error::<Test>::AccountPermissionDenied;
-
-        assert_noop!(push(JUDY, 0, 20),  denide());
-        assert_noop!(push(OSCAR, 0, 20), denide());
-        assert_noop!(push(ALICE, 0, 20), denide());
-        assert_noop!(push(ERIN, 0, 20),  denide());
+        assert_noop!(push(JUDY, 0, 20), denied());
+        assert_noop!(push(OSCAR, 0, 20), denied());
+        assert_noop!(push(ALICE, 0, 20), denied());
+        assert_noop!(push(ERIN, 0, 20), denied());
 
         self_votes(table_id, vec![(ALICE, 100), (OSCAR, 100), (JUDY, 100)]);
 
@@ -86,9 +85,9 @@ fn update_accounts()
         assert_ok!(push(OSCAR, 0, 10));
         assert_ok!(push(JUDY, 0, 20));
 
-        assert_noop!(push(EVE, 0, 20), denide());
-        assert_noop!(push(BOB, 0, 20), denide());
-        assert_noop!(push(CAROL, 0, 20), denide());
-        assert_noop!(push(ERIN, 0, 20),  denide());
+        assert_noop!(push(EVE, 0, 20), denied());
+        assert_noop!(push(BOB, 0, 20), denied());
+        assert_noop!(push(CAROL, 0, 20), denied());
+        assert_noop!(push(ERIN, 0, 20), denied());
     });
 }
