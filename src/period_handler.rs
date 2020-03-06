@@ -1,4 +1,5 @@
 use codec::{Decode, Encode};
+use rstd::cmp::Ordering;
 use sp_arithmetic::traits::{BaseArithmetic, One};
 
 /// Period Handler
@@ -50,6 +51,13 @@ impl<Moment: Default + PartialOrd<Moment>> PeriodHandler<Moment>
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum Part
+{
+    Aggregate,
+    Calculate,
+}
+
 impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
 {
     /// Get period number
@@ -58,36 +66,75 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
         (now - self.begin) / self.period
     }
 
-    /// Get part of calculate period
-    fn get_calculate_part(&self) -> Moment
-    {
-        self.period - self.aggregate_part
-    }
-
-    /// Get rest of time of the current period
     fn get_rest_of_period(&self, now: Moment) -> Moment
     {
-        let next_period = self.get_period(now) + One::one();
+        let next_period = self.get_period(now) + Moment::one();
         let next_period_begin = self.begin + (next_period * self.period);
         next_period_begin - now
     }
 
-    pub fn is_aggregate_time(&self, now: Moment) -> bool
+    fn get_part(&self, now: Moment) -> Part
     {
-        self.get_rest_of_period(now) >= self.get_calculate_part()
+        if self.get_rest_of_period(now) <= self.aggregate_part
+        {
+            Part::Aggregate
+        }
+        else
+        {
+            Part::Calculate
+        }
     }
 
-    pub fn is_calculate_time(&self, last_update_time: Option<Moment>, now: Moment) -> bool
+    pub fn is_can_aggregate(&self, now: Moment) -> bool
     {
-        if self.is_aggregate_time(now)
-        {
-            return false;
-        }
+        self.get_part(now) == Part::Aggregate
+    }
 
+    /// Is calculation possible at `now` if the data last changed at `last_update_time`
+    ///
+    /// If we don't calculate data in the past period - we can calculate it in current aggregate
+    /// part
+    pub fn is_can_calculate(&self, last_update_time: Option<Moment>, now: Moment) -> bool
+    {
+        let current_part = self.get_part(now);
         match last_update_time
         {
-            Some(last_changed) => self.get_period(now) > self.get_period(last_changed),
-            None => true,
+            Some(last_changed) =>
+            {
+                let last_part = self.get_part(last_changed);
+
+                let current_period = self.get_period(now);
+                let last_period = self.get_period(last_changed);
+
+                match current_period.cmp(&last_period)
+                {
+                    Ordering::Less => unreachable!(),
+                    Ordering::Equal =>
+                    {
+                        (last_part, current_part) == (Part::Aggregate, Part::Calculate)
+                    }
+                    Ordering::Greater => match (last_part, current_part)
+                    {
+                        (_, Part::Calculate) => true,
+                        (Part::Aggregate, Part::Aggregate) => true,
+                        (Part::Calculate, Part::Aggregate) =>
+                        {
+                            (current_period - Moment::one()) != last_period
+                        }
+                    },
+                }
+            }
+            None =>
+            {
+                if self.get_period(now) == Moment::zero()
+                {
+                    current_part == Part::Calculate
+                }
+                else
+                {
+                    true
+                }
+            }
         }
     }
 
@@ -98,7 +145,7 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
 
     pub fn is_sources_update_needed(&self, now: Moment) -> bool
     {
-        self.is_aggregate_time(now)
+        self.is_can_aggregate(now)
             && match self.last_sources_update
             {
                 None => true,
@@ -134,26 +181,26 @@ mod tests
     }
 
     #[test]
-    fn is_aggregate_time()
+    fn is_can_aggregate()
     {
         let handler = PeriodHandler::new(100, 100, 90).expect("Error in create period handler");
 
-        (100..=190).for_each(|now| assert!(handler.is_aggregate_time(now)));
-        (191..=199).for_each(|now| assert!(!handler.is_aggregate_time(now)));
+        (100..=190).for_each(|now| assert!(handler.is_can_aggregate(now)));
+        (191..=199).for_each(|now| assert!(!handler.is_can_aggregate(now)));
     }
 
     #[test]
-    fn is_calculate_time()
+    fn is_can_calculate()
     {
         let handler = PeriodHandler::new(100, 100, 90).expect("Error in create period handler");
 
-        (100..=190).for_each(|now| assert!(!handler.is_calculate_time(None, now)));
-        (191..=199).for_each(|now| assert!(handler.is_calculate_time(None, now)));
+        (100..=190).for_each(|now| assert!(!handler.is_can_calculate(None, now)));
+        (191..=199).for_each(|now| assert!(handler.is_can_calculate(None, now)));
 
-        (100..=190).for_each(|now| assert!(!handler.is_calculate_time(Some(now), now)));
-        (191..=199).for_each(|now| assert!(!handler.is_calculate_time(Some(190), now)));
+        (100..=190).for_each(|now| assert!(!handler.is_can_calculate(Some(now), now)));
+        (191..=199).for_each(|now| assert!(!handler.is_can_calculate(Some(190), now)));
 
-        (291..=299).for_each(|now| assert!(handler.is_calculate_time(Some(190), now)));
+        (291..=299).for_each(|now| assert!(handler.is_can_calculate(Some(190), now)));
     }
 
     #[test]

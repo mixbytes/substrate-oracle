@@ -140,7 +140,7 @@ decl_module! {
                     .map_err(Error::<T>::from)?;
             }
 
-            if !oracle.period_handler.is_aggregate_time(now)
+            if !oracle.period_handler.is_can_aggregate(now)
             {
                 Err(Error::<T>::NotAggregationTime)?;
             }

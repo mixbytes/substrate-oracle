@@ -149,9 +149,34 @@ pub fn get_asset_value(moment: usize, offset: Balance) -> Vec<Balance>
     EXTERNAL_DATA
         .iter()
         .map(|data| data[moment])
-        .map(|asset_value| {
-            asset_value + offset
-        })
+        .map(|asset_value| asset_value + offset)
+        .collect()
+}
+
+pub fn get_median_value(moment: usize, asset_id: usize, offsets: Vec<Balance>) -> Balance
+{
+    let data: Balance = EXTERNAL_DATA
+        .iter()
+        .map(|data| data[moment])
+        .nth(asset_id)
+        .unwrap();
+
+    let mut offsets: Vec<Balance> = offsets.into_iter().map(|offset| offset + data).collect();
+    offsets.sort();
+
+    let middle = offsets.len() / 2;
+    match offsets.len()
+    {
+        0 | 1 => 0,
+        len if len % 2 == 0 => (offsets[middle - 1] + offsets[middle]) / 2,
+        _len => offsets[middle],
+    }
+}
+
+pub fn get_median_values(moment: usize, offsets: Vec<Balance>) -> Vec<Balance>
+{
+    (1..EXTERNAL_DATA.len())
+        .map(|asset_id| get_median_value(moment, asset_id, offsets.clone()))
         .collect()
 }
 

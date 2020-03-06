@@ -2,7 +2,7 @@
 
 use crate::mock::*;
 use frame_support::dispatch;
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_ok};
 
 type Error = crate::Error<Test>;
 
@@ -31,7 +31,8 @@ fn self_votes(table_id: TableId, accounts_votes: Vec<(AccountId, Balance)>)
     });
 }
 
-#[test] fn create()
+#[test]
+fn create()
 {
     new_test_ext().execute_with(|| {
         assert_ok!(create_oracle(4));
@@ -75,27 +76,25 @@ fn update_accounts()
             )
         };
 
-        assert_ok!(push(EVE, 0, 0));
-        assert_ok!(push(BOB, 0, 10));
-        assert_ok!(push(CAROL, 0, 20));
+        [EVE, BOB, CAROL].iter().for_each(|&account| {
+            assert_ok!(push(account, 0, 0));
+        });
 
-        assert_err!(push(JUDY, 0, 20), Error::AccountPermissionDenied);
-        assert_err!(push(OSCAR, 0, 20), Error::AccountPermissionDenied);
-        assert_err!(push(ALICE, 0, 20), Error::AccountPermissionDenied);
-        assert_err!(push(ERIN, 0, 20), Error::AccountPermissionDenied);
+        [JUDY, OSCAR, ALICE, ERIN].iter().for_each(|&account| {
+            assert_err!(push(account, 0, 20), Error::AccountPermissionDenied);
+        });
 
         self_votes(table_id, vec![(ALICE, 100), (OSCAR, 100), (JUDY, 100)]);
 
         TimestampModule::set_timestamp(700);
 
-        assert_ok!(push(ALICE, 0, 0));
-        assert_ok!(push(OSCAR, 0, 10));
-        assert_ok!(push(JUDY, 0, 20));
+        [ALICE, OSCAR, JUDY].iter().for_each(|&account| {
+            assert_ok!(push(account, 0, 0));
+        });
 
-        assert_err!(push(EVE, 0, 20), Error::AccountPermissionDenied);
-        assert_err!(push(BOB, 0, 20), Error::AccountPermissionDenied);
-        assert_err!(push(CAROL, 0, 20), Error::AccountPermissionDenied);
-        assert_err!(push(ERIN, 0, 20), Error::AccountPermissionDenied);
+        [EVE, BOB, CAROL, ERIN].iter().for_each(|&account| {
+            assert_err!(push(account, 0, 20), Error::AccountPermissionDenied);
+        });
     });
 }
 
@@ -107,6 +106,77 @@ fn aggregation()
         let table_id = TablescoreModule::next_table_id();
         assert_ok!(create_oracle(3));
 
-        TimestampModule::set_timestamp(100);
+        self_votes(table_id, vec![(CAROL, 99), (BOB, 100), (EVE, 101)]);
+
+        let push = |account, moment, offset| {
+            OracleModule::push(
+                Origin::signed(account),
+                oracle_id,
+                get_asset_value(moment, offset),
+            )
+        };
+
+        let accounts = [EVE, BOB, CAROL];
+        accounts.iter().for_each(|&account| {
+            assert_ok!(push(account, 0, 20));
+        });
+
+        for now in (AGGREGATION_PERIOD + 1)..CALCULATION_PERIOD
+        {
+            TimestampModule::set_timestamp(now);
+
+            accounts.iter().for_each(|&account| {
+                assert_err!(push(account, 0, 20), Error::NotAggregationTime);
+            });
+        }
+
+        TimestampModule::set_timestamp(CALCULATION_PERIOD);
+
+        accounts.iter().for_each(|&account| {
+            assert_ok!(push(account, 0, 20));
+        });
+    });
+}
+
+#[test]
+fn calculate()
+{
+    new_test_ext().execute_with(|| {
+        let oracle_id = OracleModule::next_oracle_id();
+        let table_id = TablescoreModule::next_table_id();
+        assert_ok!(create_oracle(5));
+
+        let votes = vec![
+            (EVE, 101),
+            (BOB, 100),
+            (CAROL, 99),
+            (JUDY, 98),
+            (OSCAR, 97),
+            (ALICE, 96),
+        ];
+        self_votes(table_id, votes.clone());
+        let accounts: Vec<AccountId> = votes.into_iter().map(|(ac, _)| ac).take(5).collect();
+
+        let push = |account, moment, offset| {
+            OracleModule::push(
+                Origin::signed(account),
+                oracle_id,
+                get_asset_value(moment, offset),
+            )
+        };
+
+        let mut offsets = Vec::new();
+        accounts.into_iter().enumerate().for_each(|(index, acc)| {
+            let offset = 10u128 * (index as u128);
+            assert_ok!(push(acc, 0, offset));
+            offsets.push(offset);
+        });
+
+        TimestampModule::set_timestamp(AGGREGATION_PERIOD + 1);
+
+        //get_median_values(0, offsets).into_iter().enumerate().map(|(val, asset_id)| {
+        //    assert_ok!(OracleModule::calculate(Origin::signed(ALICE), oracle_id, asset_id));
+        //    OracleModule::oracles(oracle_id).values.get(asset_id)
+        //});
     });
 }

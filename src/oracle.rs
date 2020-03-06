@@ -109,7 +109,7 @@ impl<
         self.is_ex_asset_id_correct(ex_asset_id)?;
         Ok(self
             .period_handler
-            .is_calculate_time(self.values[ex_asset_id].last_changed, now))
+            .is_can_calculate(self.values[ex_asset_id].last_changed, now))
     }
 
     pub fn add_assets(&mut self, name: RawString)
