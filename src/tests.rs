@@ -165,43 +165,54 @@ fn calculate()
             )
         };
 
-        let offsets: Vec<u128> = accounts
-            .into_iter()
-            .enumerate()
-            .map(|(index, acc)| {
-                let offset = 10u128 * (index as u128);
-                assert_ok!(push(acc, 0, offset));
-                offset
-            })
-            .collect();
+        let mut now = 0;
 
-        TimestampModule::set_timestamp(AGGREGATION_PERIOD + 1);
+        for moment in 0..4
+        {
+            TimestampModule::set_timestamp(now);
 
-        get_median_values(0, offsets)
-            .into_iter()
-            .enumerate()
-            .for_each(|(asset_id, val)| {
-                assert_ok!(OracleModule::calculate(
+            let offsets: Vec<u128> = accounts
+                .iter()
+                .enumerate()
+                .map(|(index, &acc)| {
+                    let offset = 10u128 * (index as u128);
+                    assert_ok!(push(acc, moment, offset));
+                    offset
+                })
+                .collect();
+
+            now += AGGREGATION_PERIOD + 1; // Calculation period
+            TimestampModule::set_timestamp(now);
+
+            get_median_values(moment, offsets)
+                .into_iter()
+                .enumerate()
+                .for_each(|(asset_id, val)| {
+                    assert_ok!(OracleModule::calculate(
+                        Origin::signed(ALICE),
+                        oracle_id,
+                        asset_id as u8
+                    ));
+                    assert_eq!(
+                        OracleModule::oracles(oracle_id)
+                            .values
+                            .get(asset_id)
+                            .and_then(|ex| ex.value),
+                        Some(val)
+                    );
+                });
+
+            assert_err!(
+                OracleModule::calculate(
                     Origin::signed(ALICE),
                     oracle_id,
-                    asset_id as u8
-                ));
-                assert_eq!(
-                    OracleModule::oracles(oracle_id)
-                        .values
-                        .get(asset_id)
-                        .and_then(|ex| ex.value),
-                    Some(val)
-                );
-            });
+                    1u8 + EXTERNAL_DATA.len() as u8
+                ),
+                Error::WrongValueId
+            );
 
-        assert_err!(
-            OracleModule::calculate(
-                Origin::signed(ALICE),
-                oracle_id,
-                1u8 + EXTERNAL_DATA.len() as u8
-            ),
-            Error::WrongValueId
-        );
+            now += CALCULATION_PERIOD - 1;
+            TimestampModule::set_timestamp(now);
+        }
     });
 }
