@@ -9,7 +9,7 @@ use sp_arithmetic::traits::BaseArithmetic;
 /// |   agg   |   calc    |   agg   |   calc    |
 /// agg - Part of timeline when we aggregate new data from sources
 /// calc - Part of timeline when we calculate aggregated values
-/// Calculate value we can once at calc period
+/// Calculate value we can only once at calc period or at next agg period
 #[derive(Encode, Decode, Clone, Eq, Default, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct PeriodHandler<Moment>
