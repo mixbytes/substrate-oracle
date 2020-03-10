@@ -165,12 +165,15 @@ fn calculate()
             )
         };
 
-        let mut offsets = Vec::new();
-        accounts.into_iter().enumerate().for_each(|(index, acc)| {
-            let offset = 10u128 * (index as u128);
-            assert_ok!(push(acc, 0, offset));
-            offsets.push(offset);
-        });
+        let offsets: Vec<u128> = accounts
+            .into_iter()
+            .enumerate()
+            .map(|(index, acc)| {
+                let offset = 10u128 * (index as u128);
+                assert_ok!(push(acc, 0, offset));
+                offset
+            })
+            .collect();
 
         TimestampModule::set_timestamp(AGGREGATION_PERIOD + 1);
 
@@ -191,5 +194,14 @@ fn calculate()
                     Some(val)
                 );
             });
+
+        assert_err!(
+            OracleModule::calculate(
+                Origin::signed(ALICE),
+                oracle_id,
+                1u8 + EXTERNAL_DATA.len() as u8
+            ),
+            Error::WrongValueId
+        );
     });
 }
