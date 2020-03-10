@@ -79,6 +79,15 @@ impl<ValueType: Default + Eq + Ord + Clone, Moment: Default + Eq + Ord + Clone>
     {
         self.last_changed.is_none() && self.value.is_none()
     }
+
+    pub fn get(&self) -> Option<(ValueType, Moment)>
+    {
+        match (&self.value, &self.last_changed)
+        {
+            (Some(value), Some(last_changed)) => Some((value.clone(), last_changed.clone())),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -133,7 +133,7 @@ decl_module! {
 
             let oracle = Oracles::<T>::get(oracle_id);
 
-            if oracle.sources.is_empty() 
+            if oracle.sources.is_empty()
                 || oracle.period_handler.is_sources_update_needed(now)
             {
                 Self::update_accounts(oracle_id)
@@ -210,5 +210,18 @@ impl<T: Trait> Module<T>
 
             Ok(accounts.into_iter().cloned().collect())
         })
+    }
+
+    fn get_external_value(
+        oracle_id: T::OracleId,
+        value_id: usize,
+    ) -> Result<(T::ValueType, Moment<T>), Error<T>>
+    {
+        Oracles::<T>::get(oracle_id)
+            .values
+            .get(value_id)
+            .ok_or(Error::<T>::WrongValueId)?
+            .get()
+            .ok_or(Error::<T>::NotCalculatedValue)
     }
 }
