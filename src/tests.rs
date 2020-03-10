@@ -174,9 +174,22 @@ fn calculate()
 
         TimestampModule::set_timestamp(AGGREGATION_PERIOD + 1);
 
-        //get_median_values(0, offsets).into_iter().enumerate().map(|(val, asset_id)| {
-        //    assert_ok!(OracleModule::calculate(Origin::signed(ALICE), oracle_id, asset_id));
-        //    OracleModule::oracles(oracle_id).values.get(asset_id)
-        //});
+        get_median_values(0, offsets)
+            .into_iter()
+            .enumerate()
+            .for_each(|(asset_id, val)| {
+                assert_ok!(OracleModule::calculate(
+                    Origin::signed(ALICE),
+                    oracle_id,
+                    asset_id as u8
+                ));
+                assert_eq!(
+                    OracleModule::oracles(oracle_id)
+                        .values
+                        .get(asset_id)
+                        .and_then(|ex| ex.value),
+                    Some(val)
+                );
+            });
     });
 }

@@ -1,6 +1,6 @@
 use codec::{Decode, Encode};
 use rstd::cmp::Ordering;
-use sp_arithmetic::traits::{BaseArithmetic, One};
+use sp_arithmetic::traits::BaseArithmetic;
 
 /// Period Handler
 /// |---------------------|---------------------|
