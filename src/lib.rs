@@ -10,7 +10,6 @@ use crate::oracle::OracleError as InternalError;
 
 #[cfg(test)]
 mod mock;
-
 #[cfg(test)]
 mod tests;
 
@@ -85,6 +84,7 @@ impl<T: Trait> From<InternalError> for Error<T>
         {
             InternalError::FewSources(_exp, _act) => Error::<T>::NotEnoughSources,
             InternalError::FewPushedValue(_exp, _act) => Error::<T>::NotEnoughValues,
+            InternalError::EmptyPushedValueInPeriod => Error::<T>::NotEnoughValues,
             InternalError::WrongValuesCount(_exp, _act) => Error::<T>::WrongValuesCount,
             InternalError::WrongValueId(_asset) => Error::<T>::WrongValueId,
             InternalError::UncalculatedValue(_asset) => Error::<T>::NotCalculatedValue,
@@ -133,7 +133,7 @@ decl_module! {
 
             let oracle = Oracles::<T>::get(oracle_id);
 
-            if oracle.sources.is_empty()
+            if oracle.is_sources_empty()
                 || oracle.period_handler.is_sources_update_needed(now)
             {
                 Self::update_accounts(oracle_id)

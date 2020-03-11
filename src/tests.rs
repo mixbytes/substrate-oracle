@@ -154,6 +154,7 @@ fn calculate()
             (OSCAR, 97),
             (ALICE, 96),
         ];
+
         self_votes(table_id, votes.clone());
         let accounts: Vec<AccountId> = votes.into_iter().map(|(ac, _)| ac).take(5).collect();
 
@@ -188,11 +189,11 @@ fn calculate()
                 .into_iter()
                 .enumerate()
                 .for_each(|(asset_id, val)| {
-                    assert_ok!(OracleModule::calculate(
+                    assert_eq!(OracleModule::calculate(
                         Origin::signed(ALICE),
                         oracle_id,
                         asset_id as u8
-                    ));
+                    ), Ok(()), "now: {}, moment: {}", now, moment);
                     assert_eq!(
                         OracleModule::oracles(oracle_id)
                             .values
@@ -211,8 +212,7 @@ fn calculate()
                 Error::WrongValueId
             );
 
-            now += CALCULATION_PERIOD - 1;
-            TimestampModule::set_timestamp(now);
+            now += CALCULATION_PERIOD - AGGREGATION_PERIOD
         }
     });
 }

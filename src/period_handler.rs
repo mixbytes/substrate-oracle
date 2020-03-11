@@ -52,7 +52,7 @@ impl<Moment: Default + PartialOrd<Moment>> PeriodHandler<Moment>
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum Part
+pub enum Part
 {
     Aggregate,
     Calculate,
@@ -63,8 +63,7 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
     /// Get period number
     pub fn get_period(&self, now: Moment) -> Moment
     {
-        (now - self.begin) / self.period
-    }
+        (now - self.begin) / self.period }
 
     fn get_rest_of_period(&self, now: Moment) -> Moment
     {
@@ -73,7 +72,7 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
         next_period_begin - now
     }
 
-    fn get_part(&self, now: Moment) -> Part
+    pub fn get_part(&self, now: Moment) -> Part
     {
         if self.period - self.get_rest_of_period(now) <= self.aggregate_part
         {
