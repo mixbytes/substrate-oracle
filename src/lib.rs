@@ -5,6 +5,7 @@ use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch,
 use sp_arithmetic::traits::{BaseArithmetic, CheckedAdd, One};
 use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
 use system::ensure_signed;
+use rstd::prelude::*;
 
 use crate::oracle::OracleError as InternalError;
 

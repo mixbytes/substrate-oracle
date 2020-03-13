@@ -1,5 +1,6 @@
 use codec::{Decode, Encode};
 use rstd::cmp::{Ord, Ordering};
+use rstd::prelude::Vec;
 
 #[derive(PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
