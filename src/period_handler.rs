@@ -68,7 +68,7 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
 
     fn get_rest_of_period(&self, now: Moment) -> Moment
     {
-        let next_period = self.get_period(now) + Moment::one();
+        let next_period = self.get_period_number(now) + Moment::one();
         let next_period_begin = self.begin + (next_period * self.period);
         next_period_begin - now
     }
@@ -103,10 +103,10 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
             {
                 let last_part = self.get_part(last_changed);
 
-                let current_period = self.get_period(now);
-                let last_changed_period = self.get_period(last_changed);
+                let current_period = self.get_period_number(now);
+                let last_changed_period = self.get_period_number(last_changed);
 
-                match current_period.cmp(&last_period)
+                match current_period.cmp(&last_changed_period)
                 {
                     Ordering::Less => unreachable!(),
                     Ordering::Equal =>
@@ -119,14 +119,14 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
                         (Part::Aggregate, Part::Aggregate) => true,
                         (Part::Calculate, Part::Aggregate) =>
                         {
-                            (current_period - Moment::one()) != last_period
+                            (current_period - Moment::one()) != last_changed_period
                         }
                     },
                 }
             }
             None =>
             {
-                if self.get_period(now) == Moment::zero()
+                if self.get_period_number(now) == Moment::zero()
                 {
                     current_part == Part::Calculate
                 }
@@ -151,7 +151,7 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
                 None => true,
                 Some(last_sources_update) =>
                 {
-                    self.get_period(last_sources_update) < self.get_period(now)
+                    self.get_period_number(last_sources_update) < self.get_period_number(now)
                 }
             }
     }
@@ -176,8 +176,8 @@ mod tests
     {
         let handler = PeriodHandler::new(100, 100, 90).expect("Error in create period handler");
 
-        (100..=199).for_each(|now| assert_eq!(handler.get_period(now), 0));
-        (200..=299).for_each(|now| assert_eq!(handler.get_period(now), 1));
+        (100..=199).for_each(|now| assert_eq!(handler.get_period_number(now), 0));
+        (200..=299).for_each(|now| assert_eq!(handler.get_period_number(now), 1));
     }
 
     #[test]

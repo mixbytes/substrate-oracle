@@ -172,7 +172,7 @@ impl<
             .map(|external| {
                 if let Some(moment) = external.last_changed
                 {
-                    self.period_handler.get_period(moment) != period_for_store
+                    self.period_handler.get_period_number(moment) != period_for_store
                 }
                 else
                 {
@@ -222,9 +222,9 @@ impl<
     where
         I: Iterator<Item = ValueType>,
     {
-        let current = self.period_handler.get_period(now);
+        let current = self.period_handler.get_period_number(now);
 
-        if let Some(previous) = self.last_push_period
+        if let Some(previous) = &self.last_push_period
         {
             if previous != current
             {
@@ -314,7 +314,7 @@ impl<
         // If in current period nobody pushed (clean) values
         if match self.last_push_period
         {
-            Some(period) => self.period_handler.get_period(now) != period,
+            Some(period) => self.period_handler.get_period_number(now) != period,
             None => true,
         }
         {
@@ -322,7 +322,7 @@ impl<
             return Err(OracleError::EmptyPushedValueInPeriod);
         }
 
-        let assets: Vec<&ValueType> = self.get_actual_values(ex_asset_id, now)?;
+        let assets: Vec<&ValueType> = self.get_actual_value_variants(ex_asset_id, now)?;
 
         if self.source_limit as usize > assets.len()
         {
