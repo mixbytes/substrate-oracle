@@ -129,7 +129,7 @@ impl<
         self.values.push(ExternalValue::default());
     }
 
-    pub fn update_accounts<I>(&mut self, sources: I) -> Result<Vec<&SourceId>, OracleError>
+    pub fn update_sources<I>(&mut self, sources: I) -> Result<Vec<&SourceId>, OracleError>
     where
         I: Iterator<Item = SourceId>,
     {
@@ -224,19 +224,16 @@ impl<
     {
         let current = self.period_handler.get_period(now);
 
-        self.last_push_period = Some(match self.last_push_period
+        match self.last_push_period
         {
-            Some(previous) if previous == current => current,
             // Start of new period
-            Some(previous) =>
-            {
+            Some(previous) if previous != current => {
                 self.store_pushed_data(previous);
                 self.clear_pushed_data();
-
-                current
-            }
-            None => current,
-        });
+            },
+            _=>{},
+        };
+        self.last_push_period = Some(current);
 
         self.sources
             .get_mut(source)
@@ -244,12 +241,12 @@ impl<
                 assets
                     .iter_mut()
                     .zip(values)
-                    .for_each(|(value, new)| value.update(new, now));
+                    .for_each(|(external_value, new)| external_value.update(new, now));
             })
             .ok_or(OracleError::SourcePermissionDenied)
     }
 
-    fn get_actual_values(
+    fn get_actual_value_variants(
         &self,
         ex_asset_id: usize,
         now: Moment,
@@ -316,12 +313,10 @@ impl<
         }
 
         // If in current period nobody pushed (clean) values
-        if match self.last_push_period
-        {
+        if match self.last_push_period{
             Some(period) => self.period_handler.get_period(now) != period,
             None => true,
-        }
-        {
+        }{
             self.clear_pushed_data();
             return Err(OracleError::EmptyPushedValueInPeriod);
         }
@@ -426,7 +421,7 @@ mod tests
     {
         let mut oracle = create_oracle();
 
-        let accounts = oracle.update_accounts(ACCOUNTS.to_vec().into_iter());
+        let accounts = oracle.update_sources(ACCOUNTS.to_vec().into_iter());
 
         assert!(accounts.is_ok());
         assert_eq!(accounts.unwrap().len(), ACCOUNTS.len());
@@ -447,7 +442,7 @@ mod tests
         let mut oracle = create_oracle();
 
         oracle
-            .update_accounts(ALICE..=CAROL)
+            .update_sources(ALICE..=CAROL)
             .expect("Update accounts error.");
 
         for account in ALICE..=CAROL
@@ -476,7 +471,7 @@ mod tests
         let mut oracle = create_oracle();
 
         oracle
-            .update_accounts(ACCOUNTS.to_vec().into_iter())
+            .update_sources(ACCOUNTS.to_vec().into_iter())
             .expect("Update accounts error.");
 
         assert_ok!(oracle.push_values(&BOB, BEGIN + 0, vec![124, 1, 1, 1, 1, 5476346].into_iter()));

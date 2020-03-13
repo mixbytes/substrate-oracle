@@ -61,7 +61,7 @@ pub enum Part
 impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
 {
     /// Get period number
-    pub fn get_period(&self, now: Moment) -> Moment
+    pub fn get_period_number(&self, now: Moment) -> Moment
     {
         (now - self.begin) / self.period }
 
@@ -103,7 +103,7 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
                 let last_part = self.get_part(last_changed);
 
                 let current_period = self.get_period(now);
-                let last_period = self.get_period(last_changed);
+                let last_changed_period = self.get_period(last_changed);
 
                 match current_period.cmp(&last_period)
                 {
