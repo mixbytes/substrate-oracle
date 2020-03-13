@@ -224,15 +224,14 @@ impl<
     {
         let current = self.period_handler.get_period(now);
 
-        match self.last_push_period
+        if let Some(previous) = self.last_push_period
         {
-            // Start of new period
-            Some(previous) if previous != current => {
+            if previous != current
+            {
                 self.store_pushed_data(previous);
                 self.clear_pushed_data();
-            },
-            _=>{},
-        };
+            }
+        }
         self.last_push_period = Some(current);
 
         self.sources
