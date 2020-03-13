@@ -312,10 +312,12 @@ impl<
         }
 
         // If in current period nobody pushed (clean) values
-        if match self.last_push_period{
+        if match self.last_push_period
+        {
             Some(period) => self.period_handler.get_period(now) != period,
             None => true,
-        }{
+        }
+        {
             self.clear_pushed_data();
             return Err(OracleError::EmptyPushedValueInPeriod);
         }

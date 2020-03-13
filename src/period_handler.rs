@@ -63,7 +63,8 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
     /// Get period number
     pub fn get_period_number(&self, now: Moment) -> Moment
     {
-        (now - self.begin) / self.period }
+        (now - self.begin) / self.period
+    }
 
     fn get_rest_of_period(&self, now: Moment) -> Moment
     {
