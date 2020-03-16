@@ -129,7 +129,7 @@ impl<
         self.values.push(ExternalValue::default());
     }
 
-    pub fn update_accounts<I>(&mut self, sources: I) -> Result<Vec<&SourceId>, OracleError>
+    pub fn update_sources<I>(&mut self, sources: I) -> Result<Vec<&SourceId>, OracleError>
     where
         I: Iterator<Item = SourceId>,
     {
@@ -172,7 +172,7 @@ impl<
             .map(|external| {
                 if let Some(moment) = external.last_changed
                 {
-                    self.period_handler.get_period(moment) != period_for_store
+                    self.period_handler.get_period_number(moment) != period_for_store
                 }
                 else
                 {
@@ -222,21 +222,17 @@ impl<
     where
         I: Iterator<Item = ValueType>,
     {
-        let current = self.period_handler.get_period(now);
+        let current = self.period_handler.get_period_number(now);
 
-        self.last_push_period = Some(match self.last_push_period
+        if let Some(previous) = &self.last_push_period
         {
-            Some(previous) if previous == current => current,
-            // Start of new period
-            Some(previous) =>
+            if previous != current
             {
                 self.store_pushed_data(previous);
                 self.clear_pushed_data();
-
-                current
             }
-            None => current,
-        });
+        }
+        self.last_push_period = Some(current);
 
         self.sources
             .get_mut(source)
@@ -244,12 +240,12 @@ impl<
                 assets
                     .iter_mut()
                     .zip(values)
-                    .for_each(|(value, new)| value.update(new, now));
+                    .for_each(|(external_value, new)| external_value.update(new, now));
             })
             .ok_or(OracleError::SourcePermissionDenied)
     }
 
-    fn get_actual_values(
+    fn get_actual_value_variants(
         &self,
         ex_asset_id: usize,
         now: Moment,
@@ -318,7 +314,7 @@ impl<
         // If in current period nobody pushed (clean) values
         if match self.last_push_period
         {
-            Some(period) => self.period_handler.get_period(now) != period,
+            Some(period) => self.period_handler.get_period_number(now) != period,
             None => true,
         }
         {
@@ -326,7 +322,7 @@ impl<
             return Err(OracleError::EmptyPushedValueInPeriod);
         }
 
-        let assets: Vec<&ValueType> = self.get_actual_values(ex_asset_id, now)?;
+        let assets: Vec<&ValueType> = self.get_actual_value_variants(ex_asset_id, now)?;
 
         if self.source_limit as usize > assets.len()
         {
@@ -426,7 +422,7 @@ mod tests
     {
         let mut oracle = create_oracle();
 
-        let accounts = oracle.update_accounts(ACCOUNTS.to_vec().into_iter());
+        let accounts = oracle.update_sources(ACCOUNTS.to_vec().into_iter());
 
         assert!(accounts.is_ok());
         assert_eq!(accounts.unwrap().len(), ACCOUNTS.len());
@@ -447,7 +443,7 @@ mod tests
         let mut oracle = create_oracle();
 
         oracle
-            .update_accounts(ALICE..=CAROL)
+            .update_sources(ALICE..=CAROL)
             .expect("Update accounts error.");
 
         for account in ALICE..=CAROL
@@ -476,7 +472,7 @@ mod tests
         let mut oracle = create_oracle();
 
         oracle
-            .update_accounts(ACCOUNTS.to_vec().into_iter())
+            .update_sources(ACCOUNTS.to_vec().into_iter())
             .expect("Update accounts error.");
 
         assert_ok!(oracle.push_values(&BOB, BEGIN + 0, vec![124, 1, 1, 1, 1, 5476346].into_iter()));
