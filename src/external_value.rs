@@ -2,6 +2,7 @@ use codec::{Decode, Encode};
 use rstd::cmp::{Ord, Ordering};
 use rstd::prelude::Vec;
 
+/// Value or pair of value in vector
 #[derive(PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub enum Median<T>
@@ -10,6 +11,7 @@ pub enum Median<T>
     Pair(T, T),
 }
 
+/// Get median from ordered values
 pub fn get_median<T: Ord + Copy>(mut values: Vec<T>) -> Option<Median<T>>
 {
     values.sort();
@@ -23,11 +25,15 @@ pub fn get_median<T: Ord + Copy>(mut values: Vec<T>) -> Option<Median<T>>
     }
 }
 
+/// External (for blockchain) value
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Default)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct ExternalValue<ValueType: Default + Clone, Moment: Default + Clone>
+pub struct ExternalValue<ValueType, Moment>
 {
     pub value: Option<ValueType>,
+
+    /// Moment we last changed the value
+    /// - None if value is empty
     pub last_changed: Option<Moment>,
 }
 
@@ -61,8 +67,7 @@ impl<ValueType: Default + Eq + Ord + Clone, Moment: Default + Eq + Ord + Clone>
         ExternalValue {
             value: Some(value),
             last_changed: Some(now),
-        }
-    }
+        } }
 
     pub fn clean(&mut self)
     {
@@ -81,6 +86,7 @@ impl<ValueType: Default + Eq + Ord + Clone, Moment: Default + Eq + Ord + Clone>
         self.last_changed.is_none() && self.value.is_none()
     }
 
+    /// From pair of option to optional pair of cloned fields
     pub fn get(&self) -> Option<(ValueType, Moment)>
     {
         match (&self.value, &self.last_changed)
