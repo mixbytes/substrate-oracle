@@ -67,7 +67,7 @@ package = "sp-std"
 
 [dependencies.tablescore]
 default-features = false
-path = "../tablescore"
+path = "../substrate-tablescore"
 package = "pallet-tablescore"
 
 [features]
