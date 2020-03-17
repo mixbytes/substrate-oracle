@@ -117,7 +117,7 @@ impl<
         }
     }
 
-    pub fn get_assets_count(&self) -> usize
+    pub fn get_values_count(&self) -> usize
     {
         self.names.len()
     }
@@ -129,7 +129,7 @@ impl<
 
     pub fn is_value_id_correct(&self, ex_asset_id: usize) -> Result<(), OracleError>
     {
-        if ex_asset_id < self.get_assets_count()
+        if ex_asset_id < self.get_values_count()
         {
             Ok(())
         }
@@ -144,12 +144,12 @@ impl<
         (self.sources.len() as u8) >= self.source_limit
     }
 
-    pub fn is_calculate_time(&self, ex_asset_id: usize, now: Moment) -> Result<bool, OracleError>
+    pub fn is_allow_calculate(&self, ex_asset_id: usize, now: Moment) -> Result<bool, OracleError>
     {
         self.is_value_id_correct(ex_asset_id)?;
         Ok(self
             .period_handler
-            .is_can_calculate(self.values[ex_asset_id].last_changed, now))
+            .is_allow_calculate(self.values[ex_asset_id].last_changed, now))
     }
 
     pub fn add_assets(&mut self, name: RawString)
@@ -164,7 +164,7 @@ impl<
     {
         let default: Vec<ExternalValue<ValueType, Moment>> =
             rstd::iter::repeat_with(ExternalValue::<ValueType, Moment>::default)
-                .take(self.get_assets_count())
+                .take(self.get_values_count())
                 .collect();
 
         self.sources = sources
@@ -253,13 +253,10 @@ impl<
     {
         let current = self.period_handler.get_period_number(now);
 
-        if let Some(previous) = &self.last_push_period
+        if matches!(self.last_push_period, Some(previous) if previous != current)
         {
-            if previous != current
-            {
-                self.store_pushed_data(previous);
-                self.clear_pushed_data();
-            }
+            self.store_pushed_data(self.last_push_period.unwrap());
+            self.clear_pushed_data();
         }
         self.last_push_period = Some(current);
 
@@ -336,7 +333,7 @@ impl<
         {
             return Err(OracleError::FewSources(
                 self.source_limit as usize,
-                self.get_assets_count(),
+                self.get_values_count(),
             ));
         }
 
@@ -441,7 +438,7 @@ mod tests
         let oracle = create_oracle();
 
         assert_eq!(oracle.get_table().clone(), TABLE_ID);
-        assert_eq!(oracle.get_assets_count(), get_assets_names().len());
+        assert_eq!(oracle.get_values_count(), get_assets_names().len());
         assert!(oracle.values.iter().all(|val| val.is_clean()));
         assert_eq!(oracle.sources.len(), 0);
     }

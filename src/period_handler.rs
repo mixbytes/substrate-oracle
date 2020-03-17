@@ -85,7 +85,7 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
         }
     }
 
-    pub fn is_can_aggregate(&self, now: Moment) -> bool
+    pub fn is_allow_aggregate(&self, now: Moment) -> bool
     {
         self.get_part(now) == Part::Aggregate
     }
@@ -94,7 +94,7 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
     ///
     /// If we don't calculate data in the past period - we can calculate it in current aggregate
     /// part
-    pub fn is_can_calculate(&self, last_update_time: Option<Moment>, now: Moment) -> bool
+    pub fn is_allow_calculate(&self, last_update_time: Option<Moment>, now: Moment) -> bool
     {
         let current_part = self.get_part(now);
         match last_update_time
@@ -145,7 +145,7 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
 
     pub fn is_sources_update_needed(&self, now: Moment) -> bool
     {
-        self.is_can_aggregate(now)
+        self.is_allow_aggregate(now)
             && match self.last_sources_update
             {
                 None => true,
@@ -181,12 +181,12 @@ mod tests
     }
 
     #[test]
-    fn is_can_aggregate()
+    fn is_allow_aggregate()
     {
         let handler = PeriodHandler::new(100, 100, 90).expect("Error in create period handler");
 
-        (100..=190).for_each(|now| assert!(handler.is_can_aggregate(now)));
-        (191..=199).for_each(|now| assert!(!handler.is_can_aggregate(now)));
+        (100..=190).for_each(|now| assert!(handler.is_allow_aggregate(now)));
+        (191..=199).for_each(|now| assert!(!handler.is_allow_aggregate(now)));
     }
 
     #[test]
@@ -194,10 +194,10 @@ mod tests
     {
         let handler = PeriodHandler::new(100, 100, 90).expect("Error in create period handler");
 
-        (100..=190).for_each(|now| assert!(!handler.is_can_calculate(None, now), "{}", now));
-        (191..=199).for_each(|now| assert!(handler.is_can_calculate(None, now), "{}", now));
+        (100..=190).for_each(|now| assert!(!handler.is_allow_calculate(None, now), "{}", now));
+        (191..=199).for_each(|now| assert!(handler.is_allow_calculate(None, now), "{}", now));
 
-        (100..=190).for_each(|now| assert!(!handler.is_can_calculate(Some(now), now), "{}", now));
+        (100..=190).for_each(|now| assert!(!handler.is_allow_calculate(Some(now), now), "{}", now));
         //Todo add complicated tests
     }
 

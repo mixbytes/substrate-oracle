@@ -141,7 +141,7 @@ decl_module! {
                     .map_err(Error::<T>::from)?;
             }
 
-            if !oracle.period_handler.is_can_aggregate(now)
+            if !oracle.period_handler.is_allow_aggregate(now)
             {
                 Err(Error::<T>::NotAggregationTime)?;
             }
@@ -171,7 +171,7 @@ decl_module! {
                 Self::update_accounts(oracle_id).map_err(Error::<T>::from)?;
             }
 
-            if !oracle.is_calculate_time(value_id as usize, now).map_err(Error::<T>::from)?
+            if !oracle.is_allow_calculate(value_id as usize, now).map_err(Error::<T>::from)?
             {
                 Err(Error::<T>::NotCalculateTime)?;
             }
