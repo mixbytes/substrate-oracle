@@ -13,13 +13,28 @@ type RawString = Vec<u8>;
 #[cfg_attr(feature = "std", derive(Debug))]
 pub enum OracleError
 {
+    /// Not enough sources for oracle work
     FewSources(usize, usize),
+
+    /// Not enough pushed values for calculate
     FewPushedValue(usize, usize),
+
+    /// No push in period - can't calculate value
     EmptyPushedValueInPeriod,
+
+    /// The pushed values vector is not the right size.
     WrongValuesCount(usize, usize),
+
+    /// Value id (number in vector) is wrong
     WrongValueId(usize),
+
+    /// Value not calculated
     UncalculatedValue(usize),
+
+    /// Source not in list
     SourcePermissionDenied,
+
+    /// Unknown error in calculate process
     CalculationError,
 }
 
@@ -31,17 +46,31 @@ pub struct Oracle<
     Moment: Default + Clone,
     SourceId: Default + Ord,
 > {
+    /// Name of oracle
     pub name: RawString,
+    
+    /// ID in dpos-tablescore
     table: TableId,
 
+    /// Lower limit of the number of sources
     source_limit: u8,
+
+    /// Work with aggregate and calculate periods in oracle
     pub period_handler: PeriodHandler<Moment>,
 
+    /// All pushed by sources data
     sources: BTreeMap<SourceId, Vec<ExternalValue<ValueType, Moment>>>,
+    
+    /// Names of external values
     pub names: Vec<RawString>,
+    
+    /// Vector of calculated values
     pub values: Vec<ExternalValue<ValueType, Moment>>,
 
+    /// The last period when one of the sources pushed the values
     last_push_period: Option<Moment>,
+
+    /// The `sources` field from previous period for lazy calculating in current period aggregate part
     prev_period_source: BTreeMap<SourceId, Vec<Option<ExternalValue<ValueType, Moment>>>>,
 }
 
