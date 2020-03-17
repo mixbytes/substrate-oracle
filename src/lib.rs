@@ -207,7 +207,7 @@ impl<T: Trait> Module<T>
     {
         Oracles::<T>::mutate(oracle_id, |oracle| {
             let table = tablescore::Module::<T>::tables(oracle.get_table());
-            let accounts = oracle.update_accounts(table.get_head().into_iter().cloned())?;
+            let accounts = oracle.update_sources(table.get_head().into_iter().cloned())?;
 
             Ok(accounts.into_iter().cloned().collect())
         })
