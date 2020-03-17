@@ -48,7 +48,7 @@ pub struct Oracle<
 > {
     /// Name of oracle
     pub name: RawString,
-    
+
     /// ID in dpos-tablescore
     table: TableId,
 
@@ -60,10 +60,10 @@ pub struct Oracle<
 
     /// All pushed by sources data
     sources: BTreeMap<SourceId, Vec<ExternalValue<ValueType, Moment>>>,
-    
+
     /// Names of external values
     pub names: Vec<RawString>,
-    
+
     /// Vector of calculated values
     pub values: Vec<ExternalValue<ValueType, Moment>>,
 
@@ -117,6 +117,7 @@ impl<
         }
     }
 
+    /// Count of values inside oracle
     pub fn get_values_count(&self) -> usize
     {
         self.names.len()
@@ -127,29 +128,35 @@ impl<
         self.sources.is_empty()
     }
 
-    pub fn is_value_id_correct(&self, ex_asset_id: usize) -> Result<(), OracleError>
+    pub fn is_value_id_correct(&self, value_id: usize) -> Result<(), OracleError>
     {
-        if ex_asset_id < self.get_values_count()
+        if value_id < self.get_values_count()
         {
             Ok(())
         }
         else
         {
-            Err(OracleError::WrongValueId(ex_asset_id))
+            Err(OracleError::WrongValueId(value_id))
         }
     }
 
+    /// Is source enough for oracle work
     pub fn is_sources_enough(&self) -> bool
     {
         (self.sources.len() as u8) >= self.source_limit
     }
 
-    pub fn is_allow_calculate(&self, ex_asset_id: usize, now: Moment) -> Result<bool, OracleError>
+    /// Can we allow the calculation of a specific by id value?
+    ///
+    /// If now the calculation period and the value has not yet been calculated  - yes
+    ///
+    /// Can return `OracleError::WrongValueId(value_id)`
+    pub fn is_allow_calculate(&self, value_id: usize, now: Moment) -> Result<bool, OracleError>
     {
-        self.is_value_id_correct(ex_asset_id)?;
+        self.is_value_id_correct(value_id)?;
         Ok(self
             .period_handler
-            .is_allow_calculate(self.values[ex_asset_id].last_changed, now))
+            .is_allow_calculate(self.values[value_id].last_changed, now))
     }
 
     pub fn add_assets(&mut self, name: RawString)
@@ -158,6 +165,9 @@ impl<
         self.values.push(ExternalValue::default());
     }
 
+    /// Update sources for oracle
+    ///
+    /// Return new vector of sources if success
     pub fn update_sources<I>(&mut self, sources: I) -> Result<Vec<&SourceId>, OracleError>
     where
         I: Iterator<Item = SourceId>,
@@ -191,7 +201,7 @@ impl<
         }
     }
 
-    /// Store pushed data for previous period for late calculate
+    /// Store pushed data for previous period for late lazy-calculate
     fn store_pushed_data(&mut self, period_for_store: Moment)
     {
         // Store only for not calculated in period_for_store values
@@ -246,13 +256,14 @@ impl<
         &mut self,
         source: &SourceId,
         now: Moment,
-        values: I,
+        new_values: I,
     ) -> Result<(), OracleError>
     where
         I: Iterator<Item = ValueType>,
     {
         let current = self.period_handler.get_period_number(now);
 
+        // If this is first push in period - we store and clean previous sources data
         if matches!(self.last_push_period, Some(previous) if previous != current)
         {
             self.store_pushed_data(self.last_push_period.unwrap());
@@ -262,10 +273,10 @@ impl<
 
         self.sources
             .get_mut(source)
-            .map(|assets| {
-                assets
+            .map(|external_values| {
+                external_values
                     .iter_mut()
-                    .zip(values)
+                    .zip(new_values)
                     .for_each(|(external_value, new)| external_value.update(new, now));
             })
             .ok_or(OracleError::SourcePermissionDenied)
@@ -325,7 +336,7 @@ impl<
 
     pub fn calculate_value(
         &mut self,
-        ex_asset_id: usize,
+        value_id: usize,
         now: Moment,
     ) -> Result<ValueType, OracleError>
     {
@@ -348,17 +359,17 @@ impl<
             return Err(OracleError::EmptyPushedValueInPeriod);
         }
 
-        let assets: Vec<&ValueType> = self.get_actual_value_variants(ex_asset_id, now)?;
+        let values: Vec<&ValueType> = self.get_actual_value_variants(value_id, now)?;
 
-        if self.source_limit as usize > assets.len()
+        if self.source_limit as usize > values.len()
         {
             return Err(OracleError::FewPushedValue(
                 self.source_limit as usize,
-                assets.len(),
+                values.len(),
             ));
         }
 
-        match get_median(assets)
+        match get_median(values)
         {
             Some(Median::Value(value)) => Ok(*value),
             Some(Median::Pair(left, right)) =>
@@ -370,7 +381,7 @@ impl<
             _ => Err(OracleError::CalculationError),
         }
         .map(|res| {
-            self.values[ex_asset_id].update(res, now);
+            self.values[value_id].update(res, now);
             res
         })
     }
