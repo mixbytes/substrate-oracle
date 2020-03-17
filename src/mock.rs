@@ -45,7 +45,7 @@ impl system::Trait for Test
     type ModuleToIndex = ();
     type AccountData = ();
     type OnNewAccount = ();
-    type OnReapAccount = ();
+    type OnKilledAccount = ();
 }
 
 impl assets::Trait for Test

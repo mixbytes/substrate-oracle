@@ -22,8 +22,11 @@ use crate::period_handler::PeriodHandler;
 
 type AccountId<T> = <T as system::Trait>::AccountId;
 
+/// Module types and dependencies from other pallets
 pub trait Trait:
-    system::Trait + timestamp::Trait + tablescore::Trait<TargetType = AccountId<Self>>
+    system::Trait +
+    timestamp::Trait +
+    tablescore::Trait<TargetType = AccountId<Self>>
 {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     type OracleId: Default + Parameter + Member + Copy + BaseArithmetic + MaybeSerializeDeserialize;
@@ -101,10 +104,20 @@ decl_module! {
 
         fn deposit_event() = default;
 
+        /// Create oracle in runtime
+        ///
+        ///  * `name` - A raw string for identify oracle
+        ///  * `source_limit` - Lower limit of the number of sources
+        ///  * `period` - Defines oracle work cycle. Period have aggregate and calculate part. 
+        ///  * `aggregate_period` - Part of period when sources can push values. The rest part of
+        ///  period - `calculate_part` when we can calculate from pushed values.
+        ///  * `asset_id` - Asset with the help of which voting is carried out in tablescore
+        ///  * `values_names` - Names of all external values for oracle
+        ///
         pub fn create_oracle(origin,
             name: Vec<u8>,
             source_limit: u8,
-            calculate_period: Moment<T>,
+            period: Moment<T>,
             aggregate_period: Moment<T>,
             asset_id: AssetId<T>,
             values_names: Vec<Vec<u8>>,
@@ -112,7 +125,7 @@ decl_module! {
         {
             let who = ensure_signed(origin)?;
             let now = timestamp::Module::<T>::get();
-            let period = PeriodHandler::new(now, calculate_period, aggregate_period)
+            let period = PeriodHandler::new(now, period, aggregate_period)
                 .map_err(|_| Error::<T>::WrongPeriods)?;
 
             let table = tablescore::Module::<T>::create(who.clone(), asset_id, source_limit, Some(name.clone()))?;
@@ -125,6 +138,12 @@ decl_module! {
             Ok(())
         }
 
+        /// Push values to oracle
+        ///
+        /// In order to push, you need some conditions:
+        /// - You must be the winner from tablescore
+        /// - `values` must be the right size
+        /// - There must be an aggregation period
         pub fn push(origin,
             oracle_id: T::OracleId,
             values: Vec<T::ValueType>) -> dispatch::DispatchResult
@@ -158,6 +177,12 @@ decl_module! {
             Ok(())
         }
 
+        /// Calculate value in oracle
+        /// 
+        /// In order to calculate, you need some conditions:
+        /// - There must be a calculate period part or in the previous 
+        /// calculate period part the value was not calculated
+        /// - There are enough pushed values in oracle
         pub fn calculate(origin,
             oracle_id: T::OracleId,
             value_id: u8) -> dispatch::DispatchResult
@@ -213,6 +238,7 @@ impl<T: Trait> Module<T>
         })
     }
 
+    /// Getter for calculate value in oracle
     fn get_external_value(
         oracle_id: T::OracleId,
         value_id: usize,
@@ -224,5 +250,25 @@ impl<T: Trait> Module<T>
             .ok_or(Error::<T>::WrongValueId)?
             .get()
             .ok_or(Error::<T>::NotCalculatedValue)
+    }
+
+    fn get_or_calculate_external_value(
+        origin: T::Origin,
+        oracle_id: T::OracleId,
+        value_id: usize,
+    ) -> Result<(T::ValueType, Moment<T>), dispatch::DispatchError>
+    {
+        match Oracles::<T>::get(oracle_id)
+            .values
+            .get(value_id)
+            .ok_or(Error::<T>::WrongValueId)?
+            .get()
+        {
+            Some((value, moment)) => Ok((value, moment)),
+            None => {
+                Self::calculate(origin, oracle_id, value_id as u8)?;
+                Ok(Self::get_external_value(oracle_id, value_id)?)
+            },
+        }
     }
 }
