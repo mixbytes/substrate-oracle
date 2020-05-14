@@ -2,7 +2,7 @@
 authors = ["sadsnake sadsnake@mixbytes.io"]
 edition = '2018'
 name = 'pallet-oracle'
-version = '0.0.1'
+version = '0.1.0'
 
 [dependencies]
 serde = { version = "1.0.101", optional = true }
@@ -13,62 +13,63 @@ safe-mix = { default-features = false, version = '1.0.0' }
 default-features = false
 version = "2.0.0-alpha.2"
 git = "https://github.com/paritytech/substrate.git"
-rev = "f5c6ebf966c126117717445416515987ecd13a40"
+rev = "00a400f82539e2f78e8ddbcd98aea512c87c5f3c"
 
 [dependencies.system]
 default-features = false
 package = 'frame-system'
 version = "2.0.0-alpha.2"
 git = "https://github.com/paritytech/substrate.git"
-rev = "f5c6ebf966c126117717445416515987ecd13a40"
+rev = "00a400f82539e2f78e8ddbcd98aea512c87c5f3c"
 
 [dependencies.assets]
 default-features = false
 version = "2.0.0-alpha.2"
 git = "https://github.com/paritytech/substrate.git"
-rev = "f5c6ebf966c126117717445416515987ecd13a40"
+rev = "00a400f82539e2f78e8ddbcd98aea512c87c5f3c"
 package = "pallet-generic-asset"
 
 [dependencies.timestamp]
 default-features = false
 version = "2.0.0-alpha.2"
 git = "https://github.com/paritytech/substrate.git"
-rev = "f5c6ebf966c126117717445416515987ecd13a40"
+rev = "00a400f82539e2f78e8ddbcd98aea512c87c5f3c"
 package = "pallet-timestamp"
 
 [dev-dependencies.sp-core]
 default-features = false
 version = "2.0.0-alpha.2"
 git = "https://github.com/paritytech/substrate.git"
-rev = "f5c6ebf966c126117717445416515987ecd13a40"
+rev = "00a400f82539e2f78e8ddbcd98aea512c87c5f3c"
 
 [dev-dependencies.sp-io]
 default-features = false
 version = "2.0.0-alpha.2"
 git = "https://github.com/paritytech/substrate.git"
-rev = "f5c6ebf966c126117717445416515987ecd13a40"
+rev = "00a400f82539e2f78e8ddbcd98aea512c87c5f3c"
 
 [dependencies.sp-runtime]
 default-features = false
 git = "https://github.com/paritytech/substrate.git"
-rev = "f5c6ebf966c126117717445416515987ecd13a40"
+rev = "00a400f82539e2f78e8ddbcd98aea512c87c5f3c"
 
 [dependencies.sp-arithmetic]
 default-features = false
 version = "2.0.0-alpha.2"
 git = "https://github.com/paritytech/substrate.git"
-rev = "f5c6ebf966c126117717445416515987ecd13a40"
+rev = "00a400f82539e2f78e8ddbcd98aea512c87c5f3c"
 
 [dependencies.rstd]
 default-features = false
 git = "https://github.com/paritytech/substrate.git"
-rev = "f5c6ebf966c126117717445416515987ecd13a40"
+rev = "00a400f82539e2f78e8ddbcd98aea512c87c5f3c"
 package = "sp-std"
 
 [dependencies.tablescore]
 default-features = false
-path = "../substrate-tablescore"
+git = "https://github.com/mixbytes/substrate-tablescore.git"
 package = "pallet-tablescore"
+version = "0.1.1"
 
 [features]
 default = ['std']
@@ -79,5 +80,6 @@ std = [
     'system/std',
     'assets/std',
     'timestamp/std',
+    'sp-core/std',
     'tablescore/std',
 ]

@@ -2,7 +2,7 @@ use codec::{Decode, Encode};
 use rstd::cmp::Ord;
 use rstd::collections::btree_map::BTreeMap;
 use rstd::prelude::Vec;
-use sp_arithmetic::traits::BaseArithmetic;
+use sp_arithmetic::traits::SimpleArithmetic;
 
 use crate::external_value::{get_median, ExternalValue, Median};
 use crate::period_handler::{Part, PeriodHandler};
@@ -11,8 +11,7 @@ type RawString = Vec<u8>;
 
 #[derive(Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub enum OracleError
-{
+pub enum OracleError {
     /// Not enough sources for oracle work
     FewSources(usize, usize),
 
@@ -81,16 +80,15 @@ impl<
         SourceId: Default + Ord,
     > Oracle<TableId, ValueType, Moment, SourceId>
 {
-    pub fn get_table(&self) -> &TableId
-    {
+    pub fn get_table(&self) -> &TableId {
         &self.table
     }
 }
 
 impl<
         TableId: Default,
-        ValueType: Default + Copy + BaseArithmetic,
-        Moment: Default + Copy + BaseArithmetic,
+        ValueType: Default + Copy + SimpleArithmetic,
+        Moment: Default + Copy + SimpleArithmetic,
         SourceId: Default + Ord + Clone,
     > Oracle<TableId, ValueType, Moment, SourceId>
 {
@@ -100,8 +98,7 @@ impl<
         period_handler: PeriodHandler<Moment>,
         source_limit: u8,
         assets_name: Vec<RawString>,
-    ) -> Self
-    {
+    ) -> Self {
         Oracle {
             name,
             table,
@@ -118,31 +115,24 @@ impl<
     }
 
     /// Count of values inside oracle
-    pub fn get_values_count(&self) -> usize
-    {
+    pub fn get_values_count(&self) -> usize {
         self.names.len()
     }
 
-    pub fn is_sources_empty(&self) -> bool
-    {
+    pub fn is_sources_empty(&self) -> bool {
         self.sources.is_empty()
     }
 
-    pub fn is_value_id_correct(&self, value_id: usize) -> Result<(), OracleError>
-    {
-        if value_id < self.get_values_count()
-        {
+    pub fn is_value_id_correct(&self, value_id: usize) -> Result<(), OracleError> {
+        if value_id < self.get_values_count() {
             Ok(())
-        }
-        else
-        {
+        } else {
             Err(OracleError::WrongValueId(value_id))
         }
     }
 
     /// Is source enough for oracle work
-    pub fn is_sources_enough(&self) -> bool
-    {
+    pub fn is_sources_enough(&self) -> bool {
         (self.sources.len() as u8) >= self.source_limit
     }
 
@@ -151,16 +141,14 @@ impl<
     /// If now the calculation period and the value has not yet been calculated  - yes
     ///
     /// Can return `OracleError::WrongValueId(value_id)`
-    pub fn is_allow_calculate(&self, value_id: usize, now: Moment) -> Result<bool, OracleError>
-    {
+    pub fn is_allow_calculate(&self, value_id: usize, now: Moment) -> Result<bool, OracleError> {
         self.is_value_id_correct(value_id)?;
         Ok(self
             .period_handler
             .is_allow_calculate(self.values[value_id].last_changed, now))
     }
 
-    pub fn add_assets(&mut self, name: RawString)
-    {
+    pub fn add_assets(&mut self, name: RawString) {
         self.names.push(name);
         self.values.push(ExternalValue::default());
     }
@@ -179,8 +167,7 @@ impl<
 
         self.sources = sources
             .map(|account| {
-                let external_value = match self.sources.get(&account)
-                {
+                let external_value = match self.sources.get(&account) {
                     Some(ex_val) => ex_val.clone(),
                     None => default.clone(),
                 };
@@ -188,12 +175,9 @@ impl<
             })
             .collect();
 
-        if self.is_sources_enough()
-        {
+        if self.is_sources_enough() {
             Ok(self.sources.iter().map(|(src, _)| src).collect())
-        }
-        else
-        {
+        } else {
             Err(OracleError::FewSources(
                 self.source_limit as usize,
                 self.sources.len(),
@@ -202,19 +186,15 @@ impl<
     }
 
     /// Store pushed data for previous period for late lazy-calculate
-    fn store_pushed_data(&mut self, period_for_store: Moment)
-    {
+    fn store_pushed_data(&mut self, period_for_store: Moment) {
         // Store only for not calculated in period_for_store values
         let is_need_store_flags: Vec<bool> = self
             .values
             .iter()
             .map(|external| {
-                if let Some(moment) = external.last_changed
-                {
+                if let Some(moment) = external.last_changed {
                     self.period_handler.get_period_number(moment) != period_for_store
-                }
-                else
-                {
+                } else {
                     true
                 }
             })
@@ -228,12 +208,9 @@ impl<
                     .iter()
                     .zip(is_need_store_flags.iter())
                     .map(|(val, is_need_store)| {
-                        if *is_need_store
-                        {
+                        if *is_need_store {
                             Some(val.clone())
-                        }
-                        else
-                        {
+                        } else {
                             None
                         }
                     })
@@ -243,8 +220,7 @@ impl<
             .collect();
     }
 
-    fn clear_pushed_data(&mut self)
-    {
+    fn clear_pushed_data(&mut self) {
         self.sources
             .iter_mut()
             .for_each(|(_source, external_values)| {
@@ -264,8 +240,7 @@ impl<
         let current = self.period_handler.get_period_number(now);
 
         // If this is first push in period - we store and clean previous sources data
-        if matches!(self.last_push_period, Some(previous) if previous != current)
-        {
+        if matches!(self.last_push_period, Some(previous) if previous != current) {
             self.store_pushed_data(self.last_push_period.unwrap());
             self.clear_pushed_data();
         }
@@ -286,12 +261,10 @@ impl<
         &self,
         ex_asset_id: usize,
         now: Moment,
-    ) -> Result<Vec<&ValueType>, OracleError>
-    {
+    ) -> Result<Vec<&ValueType>, OracleError> {
         self.is_value_id_correct(ex_asset_id)?;
 
-        Ok(match self.period_handler.get_part(now)
-        {
+        Ok(match self.period_handler.get_part(now) {
             // Calculate with prev period data
             Part::Aggregate => self
                 .prev_period_source
@@ -317,19 +290,15 @@ impl<
         })
     }
 
-    pub fn pull_value(&mut self, ex_asset_id: usize) -> Result<(ValueType, Moment), OracleError>
-    {
+    pub fn pull_value(&mut self, ex_asset_id: usize) -> Result<(ValueType, Moment), OracleError> {
         self.is_value_id_correct(ex_asset_id)?;
 
         if let (Some(value), Some(moment)) = (
             self.values[ex_asset_id].value,
             self.values[ex_asset_id].last_changed,
-        )
-        {
+        ) {
             Ok((value, moment))
-        }
-        else
-        {
+        } else {
             Err(OracleError::UncalculatedValue(ex_asset_id))
         }
     }
@@ -338,10 +307,8 @@ impl<
         &mut self,
         value_id: usize,
         now: Moment,
-    ) -> Result<ValueType, OracleError>
-    {
-        if !self.is_sources_enough()
-        {
+    ) -> Result<ValueType, OracleError> {
+        if !self.is_sources_enough() {
             return Err(OracleError::FewSources(
                 self.source_limit as usize,
                 self.get_values_count(),
@@ -349,31 +316,26 @@ impl<
         }
 
         // If in current period nobody pushed (clean) values
-        if match self.last_push_period
-        {
+        if match self.last_push_period {
             Some(period) => self.period_handler.get_period_number(now) != period,
             None => true,
-        }
-        {
+        } {
             self.clear_pushed_data();
             return Err(OracleError::EmptyPushedValueInPeriod);
         }
 
         let values: Vec<&ValueType> = self.get_actual_value_variants(value_id, now)?;
 
-        if self.source_limit as usize > values.len()
-        {
+        if self.source_limit as usize > values.len() {
             return Err(OracleError::FewPushedValue(
                 self.source_limit as usize,
                 values.len(),
             ));
         }
 
-        match get_median(values)
-        {
+        match get_median(values) {
             Some(Median::Value(value)) => Ok(*value),
-            Some(Median::Pair(left, right)) =>
-            {
+            Some(Median::Pair(left, right)) => {
                 let sum = *left + *right;
                 let div = ValueType::one() + ValueType::one();
                 Ok(sum / div)
@@ -388,8 +350,7 @@ impl<
 }
 
 #[cfg(test)]
-mod tests
-{
+mod tests {
     type Oracle = super::Oracle<u32, u32, u32, u32>;
     type PeriodHandler = super::PeriodHandler<u32>;
     type OE = super::OracleError;
@@ -413,24 +374,20 @@ mod tests
     const AGGREGATE_PART: u32 = 5;
     const CALCULATE_BEGIN: u32 = BEGIN + AGGREGATE_PART + 1;
 
-    fn create_period_handler() -> PeriodHandler
-    {
+    fn create_period_handler() -> PeriodHandler {
         super::PeriodHandler::new(BEGIN, PERIOD, AGGREGATE_PART).unwrap()
     }
 
-    fn get_assets_names() -> Vec<&'static str>
-    {
+    fn get_assets_names() -> Vec<&'static str> {
         vec!["f", "s", "t", "f", "f", "s"]
     }
 
-    fn get_assets_value(value: u32) -> Vec<u32>
-    {
+    fn get_assets_value(value: u32) -> Vec<u32> {
         rstd::iter::repeat(value)
             .take(get_assets_names().len())
             .collect()
     }
-    fn create_oracle() -> Oracle
-    {
+    fn create_oracle() -> Oracle {
         Oracle::new(
             "test".to_owned().as_bytes().to_vec(),
             TABLE_ID,
@@ -444,8 +401,7 @@ mod tests
     }
 
     #[test]
-    fn create()
-    {
+    fn create() {
         let oracle = create_oracle();
 
         assert_eq!(oracle.get_table().clone(), TABLE_ID);
@@ -455,8 +411,7 @@ mod tests
     }
 
     #[test]
-    fn accounts()
-    {
+    fn accounts() {
         let mut oracle = create_oracle();
 
         let accounts = oracle.update_sources(ACCOUNTS.to_vec().into_iter());
@@ -466,8 +421,7 @@ mod tests
 
         assert_eq!(oracle.sources.len(), ACCOUNTS.len());
 
-        for (_account, values) in oracle.sources.iter()
-        {
+        for (_account, values) in oracle.sources.iter() {
             assert!(values.iter().all(|val| val.is_clean()));
             assert_eq!(values.len(), get_assets_names().len());
             assert!(values.iter().all(|ext| ext.is_clean()));
@@ -475,24 +429,21 @@ mod tests
     }
 
     #[test]
-    fn push_simple()
-    {
+    fn push_simple() {
         let mut oracle = create_oracle();
 
         oracle
             .update_sources(ALICE..=CAROL)
             .expect("Update accounts error.");
 
-        for account in ALICE..=CAROL
-        {
+        for account in ALICE..=CAROL {
             assert_eq!(
                 oracle.push_values(&account, BEGIN, get_assets_value(10).into_iter()),
                 Ok(())
             );
         }
 
-        for i in 0..get_assets_names().len()
-        {
+        for i in 0..get_assets_names().len() {
             assert_eq!(oracle.calculate_value(i, CALCULATE_BEGIN), Ok(10));
         }
     }
@@ -504,8 +455,7 @@ mod tests
     }
 
     #[test]
-    fn push()
-    {
+    fn push() {
         let mut oracle = create_oracle();
 
         oracle

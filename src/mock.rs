@@ -25,8 +25,7 @@ parameter_types! {
         pub const MinimumPeriod: u64 = 1;
 }
 
-impl system::Trait for Test
-{
+impl system::Trait for Test {
     type Origin = Origin;
     type Call = ();
     type Index = u64;
@@ -43,35 +42,28 @@ impl system::Trait for Test
     type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
     type ModuleToIndex = ();
-    type AccountData = ();
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
 }
 
-impl assets::Trait for Test
-{
+impl assets::Trait for Test {
     type Event = ();
     type Balance = u128;
     type AssetId = u32;
 }
 
-impl timestamp::Trait for Test
-{
+impl timestamp::Trait for Test {
     type Moment = u128;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
 }
 
-impl tablescore::Trait for Test
-{
+impl tablescore::Trait for Test {
     type Event = ();
     type TableId = u32;
     type PeriodType = u32;
     type TargetType = <Self as system::Trait>::AccountId;
 }
 
-impl crate::Trait for Test
-{
+impl crate::Trait for Test {
     type Event = ();
     type OracleId = u32;
     type ValueType = u128;
@@ -134,18 +126,15 @@ pub const EXTERNAL_DATA: [[Balance; 4]; 7] = [
 pub const AGGREGATION_PERIOD: <Test as timestamp::Trait>::Moment = 60 * 9;
 pub const CALCULATION_PERIOD: <Test as timestamp::Trait>::Moment = 60 * 10;
 
-pub fn to_raw(input: &'static str) -> Vec<u8>
-{
+pub fn to_raw(input: &'static str) -> Vec<u8> {
     input.to_owned().as_bytes().to_vec()
 }
 
-pub fn get_asset_names() -> Vec<Vec<u8>>
-{
+pub fn get_asset_names() -> Vec<Vec<u8>> {
     EXCHANGES.iter().map(|pair| to_raw(pair)).collect()
 }
 
-pub fn get_asset_value(moment: usize, offset: Balance) -> Vec<Balance>
-{
+pub fn get_asset_value(moment: usize, offset: Balance) -> Vec<Balance> {
     EXTERNAL_DATA
         .iter()
         .map(|data| data[moment])
@@ -153,8 +142,7 @@ pub fn get_asset_value(moment: usize, offset: Balance) -> Vec<Balance>
         .collect()
 }
 
-pub fn get_median_value(moment: usize, asset_id: usize, offsets: Vec<Balance>) -> Balance
-{
+pub fn get_median_value(moment: usize, asset_id: usize, offsets: Vec<Balance>) -> Balance {
     let data: Balance = EXTERNAL_DATA
         .iter()
         .map(|data| data[moment])
@@ -165,23 +153,20 @@ pub fn get_median_value(moment: usize, asset_id: usize, offsets: Vec<Balance>) -
     offsets.sort();
 
     let middle = offsets.len() / 2;
-    match offsets.len()
-    {
+    match offsets.len() {
         0 | 1 => 0,
         len if len % 2 == 0 => (offsets[middle - 1] + offsets[middle]) / 2,
         _len => offsets[middle],
     }
 }
 
-pub fn get_median_values(moment: usize, offsets: Vec<Balance>) -> Vec<Balance>
-{
+pub fn get_median_values(moment: usize, offsets: Vec<Balance>) -> Vec<Balance> {
     (1..EXTERNAL_DATA.len())
         .map(|asset_id| get_median_value(moment, asset_id, offsets.clone()))
         .collect()
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities
-{
+pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut t = system::GenesisConfig::default()
         .build_storage::<Test>()
         .unwrap();

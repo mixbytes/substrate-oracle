@@ -1,6 +1,6 @@
 use codec::{Decode, Encode};
 use rstd::cmp::Ordering;
-use sp_arithmetic::traits::BaseArithmetic;
+use sp_arithmetic::traits::SimpleArithmetic;
 
 /// Period Handler
 /// |---------------------|---------------------|
@@ -12,8 +12,7 @@ use sp_arithmetic::traits::BaseArithmetic;
 /// Calculate value we can only once at calc period or at next agg period
 #[derive(Encode, Decode, Clone, Eq, Default, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct PeriodHandler<Moment>
-{
+pub struct PeriodHandler<Moment> {
     /// Begin of period handle
     begin: Moment,
 
@@ -27,66 +26,52 @@ pub struct PeriodHandler<Moment>
     last_sources_update: Option<Moment>,
 }
 
-impl<Moment: Default + PartialOrd<Moment>> PeriodHandler<Moment>
-{
+impl<Moment: Default + PartialOrd<Moment>> PeriodHandler<Moment> {
     pub fn new(
         now: Moment,
         period: Moment,
         aggregate_part: Moment,
-    ) -> Result<PeriodHandler<Moment>, ()>
-    {
-        if period > aggregate_part
-        {
+    ) -> Result<PeriodHandler<Moment>, ()> {
+        if period > aggregate_part {
             Ok(PeriodHandler {
                 period,
                 aggregate_part,
                 begin: now,
                 last_sources_update: None,
             })
-        }
-        else
-        {
+        } else {
             Err(())
         }
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Part
-{
+pub enum Part {
     Aggregate,
     Calculate,
 }
 
-impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
-{
+impl<Moment: SimpleArithmetic + Copy> PeriodHandler<Moment> {
     /// Get period number
-    pub fn get_period_number(&self, now: Moment) -> Moment
-    {
+    pub fn get_period_number(&self, now: Moment) -> Moment {
         (now - self.begin) / self.period
     }
 
-    fn get_rest_of_period(&self, now: Moment) -> Moment
-    {
+    fn get_rest_of_period(&self, now: Moment) -> Moment {
         let next_period = self.get_period_number(now) + Moment::one();
         let next_period_begin = self.begin + (next_period * self.period);
         next_period_begin - now
     }
 
-    pub fn get_part(&self, now: Moment) -> Part
-    {
-        if self.period - self.get_rest_of_period(now) <= self.aggregate_part
-        {
+    pub fn get_part(&self, now: Moment) -> Part {
+        if self.period - self.get_rest_of_period(now) <= self.aggregate_part {
             Part::Aggregate
-        }
-        else
-        {
+        } else {
             Part::Calculate
         }
     }
 
-    pub fn is_allow_aggregate(&self, now: Moment) -> bool
-    {
+    pub fn is_allow_aggregate(&self, now: Moment) -> bool {
         self.get_part(now) == Part::Aggregate
     }
 
@@ -94,63 +79,48 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
     ///
     /// If we don't calculate data in the past period - we can calculate it in current aggregate
     /// part
-    pub fn is_allow_calculate(&self, last_update_time: Option<Moment>, now: Moment) -> bool
-    {
+    pub fn is_allow_calculate(&self, last_update_time: Option<Moment>, now: Moment) -> bool {
         let current_part = self.get_part(now);
-        match last_update_time
-        {
-            Some(last_changed) =>
-            {
+        match last_update_time {
+            Some(last_changed) => {
                 let last_part = self.get_part(last_changed);
 
                 let current_period = self.get_period_number(now);
                 let last_changed_period = self.get_period_number(last_changed);
 
-                match current_period.cmp(&last_changed_period)
-                {
+                match current_period.cmp(&last_changed_period) {
                     Ordering::Less => unreachable!(),
-                    Ordering::Equal =>
-                    {
+                    Ordering::Equal => {
                         (last_part, current_part) == (Part::Aggregate, Part::Calculate)
                     }
-                    Ordering::Greater => match (last_part, current_part)
-                    {
+                    Ordering::Greater => match (last_part, current_part) {
                         (_, Part::Calculate) => true,
                         (Part::Aggregate, Part::Aggregate) => true,
-                        (Part::Calculate, Part::Aggregate) =>
-                        {
+                        (Part::Calculate, Part::Aggregate) => {
                             (current_period - Moment::one()) != last_changed_period
                         }
                     },
                 }
             }
-            None =>
-            {
-                if self.get_period_number(now) == Moment::zero()
-                {
+            None => {
+                if self.get_period_number(now) == Moment::zero() {
                     current_part == Part::Calculate
-                }
-                else
-                {
+                } else {
                     true
                 }
             }
         }
     }
 
-    pub fn set_sources_updated(&mut self, now: Moment)
-    {
+    pub fn set_sources_updated(&mut self, now: Moment) {
         self.last_sources_update = Some(now);
     }
 
-    pub fn is_sources_update_needed(&self, now: Moment) -> bool
-    {
+    pub fn is_sources_update_needed(&self, now: Moment) -> bool {
         self.is_allow_aggregate(now)
-            && match self.last_sources_update
-            {
+            && match self.last_sources_update {
                 None => true,
-                Some(last_sources_update) =>
-                {
+                Some(last_sources_update) => {
                     self.get_period_number(last_sources_update) < self.get_period_number(now)
                 }
             }
@@ -158,13 +128,11 @@ impl<Moment: BaseArithmetic + Copy> PeriodHandler<Moment>
 }
 
 #[cfg(test)]
-mod tests
-{
+mod tests {
     type PeriodHandler = super::PeriodHandler<u32>;
 
     #[test]
-    fn create()
-    {
+    fn create() {
         assert_eq!(PeriodHandler::new(0, 1, 10), Err(()));
 
         let handler = PeriodHandler::new(0, 100, 90);
@@ -172,8 +140,7 @@ mod tests
     }
 
     #[test]
-    fn get_period()
-    {
+    fn get_period() {
         let handler = PeriodHandler::new(100, 100, 90).expect("Error in create period handler");
 
         (100..=199).for_each(|now| assert_eq!(handler.get_period_number(now), 0));
@@ -181,8 +148,7 @@ mod tests
     }
 
     #[test]
-    fn is_allow_aggregate()
-    {
+    fn is_allow_aggregate() {
         let handler = PeriodHandler::new(100, 100, 90).expect("Error in create period handler");
 
         (100..=190).for_each(|now| assert!(handler.is_allow_aggregate(now)));
@@ -190,8 +156,7 @@ mod tests
     }
 
     #[test]
-    fn is_can_calculate()
-    {
+    fn is_can_calculate() {
         let handler = PeriodHandler::new(100, 100, 90).expect("Error in create period handler");
 
         (100..=190).for_each(|now| assert!(!handler.is_allow_calculate(None, now), "{}", now));
@@ -202,8 +167,7 @@ mod tests
     }
 
     #[test]
-    fn is_sources_update_needed()
-    {
+    fn is_sources_update_needed() {
         let mut handler = PeriodHandler::new(100, 100, 90).expect("Error in create period handler");
 
         (100..=190).for_each(|now| assert!(handler.is_sources_update_needed(now)));

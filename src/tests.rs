@@ -6,8 +6,7 @@ use frame_support::{assert_err, assert_ok};
 
 type Error = crate::Error<Test>;
 
-fn create_oracle(source_limit: u8) -> dispatch::DispatchResult
-{
+fn create_oracle(source_limit: u8) -> dispatch::DispatchResult {
     OracleModule::create_oracle(
         Origin::signed(ALICE),
         to_raw(ORACLE_NAME),
@@ -19,8 +18,7 @@ fn create_oracle(source_limit: u8) -> dispatch::DispatchResult
     )
 }
 
-fn self_votes(table_id: TableId, accounts_votes: Vec<(AccountId, Balance)>)
-{
+fn self_votes(table_id: TableId, accounts_votes: Vec<(AccountId, Balance)>) {
     accounts_votes.into_iter().for_each(|(account, balance)| {
         assert_ok!(TablescoreModule::vote(
             Origin::signed(account),
@@ -32,16 +30,14 @@ fn self_votes(table_id: TableId, accounts_votes: Vec<(AccountId, Balance)>)
 }
 
 #[test]
-fn create()
-{
+fn create() {
     new_test_ext().execute_with(|| {
         assert_ok!(create_oracle(4));
     });
 }
 
 #[test]
-fn update_accounts()
-{
+fn update_accounts() {
     new_test_ext().execute_with(|| {
         let oracle_id = OracleModule::next_oracle_id();
         let table_id = TablescoreModule::next_table_id();
@@ -99,8 +95,7 @@ fn update_accounts()
 }
 
 #[test]
-fn aggregation()
-{
+fn aggregation() {
     new_test_ext().execute_with(|| {
         let oracle_id = OracleModule::next_oracle_id();
         let table_id = TablescoreModule::next_table_id();
@@ -121,8 +116,7 @@ fn aggregation()
             assert_ok!(push(account, 0, 20));
         });
 
-        for now in (AGGREGATION_PERIOD + 1)..CALCULATION_PERIOD
-        {
+        for now in (AGGREGATION_PERIOD + 1)..CALCULATION_PERIOD {
             TimestampModule::set_timestamp(now);
 
             accounts.iter().for_each(|&account| {
@@ -139,8 +133,7 @@ fn aggregation()
 }
 
 #[test]
-fn calculate()
-{
+fn calculate() {
     new_test_ext().execute_with(|| {
         let oracle_id = OracleModule::next_oracle_id();
         let table_id = TablescoreModule::next_table_id();
@@ -168,8 +161,7 @@ fn calculate()
 
         let mut now = 0;
 
-        for moment in 0..4
-        {
+        for moment in 0..4 {
             TimestampModule::set_timestamp(now);
 
             let offsets: Vec<u128> = accounts
@@ -189,11 +181,13 @@ fn calculate()
                 .into_iter()
                 .enumerate()
                 .for_each(|(asset_id, val)| {
-                    assert_eq!(OracleModule::calculate(
-                        Origin::signed(ALICE),
-                        oracle_id,
-                        asset_id as u8
-                    ), Ok(()), "now: {}, moment: {}", now, moment);
+                    assert_eq!(
+                        OracleModule::calculate(Origin::signed(ALICE), oracle_id, asset_id as u8),
+                        Ok(()),
+                        "now: {}, moment: {}",
+                        now,
+                        moment
+                    );
                     assert_eq!(
                         OracleModule::oracles(oracle_id)
                             .values

@@ -1,11 +1,12 @@
+#![allow(dead_code)]
 #![feature(rustc_private)] // decl_storage extra genesis bug
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch, Parameter};
-use sp_arithmetic::traits::{BaseArithmetic, CheckedAdd, One};
+use rstd::prelude::*;
+use sp_arithmetic::traits::{CheckedAdd, One, SimpleArithmetic};
 use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
 use system::ensure_signed;
-use rstd::prelude::*;
 
 use crate::oracle::OracleError as InternalError;
 
@@ -24,13 +25,16 @@ type AccountId<T> = <T as system::Trait>::AccountId;
 
 /// Module types and dependencies from other pallets
 pub trait Trait:
-    system::Trait +
-    timestamp::Trait +
-    tablescore::Trait<TargetType = AccountId<Self>>
+    system::Trait + timestamp::Trait + tablescore::Trait<TargetType = AccountId<Self>>
 {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    type OracleId: Default + Parameter + Member + Copy + BaseArithmetic + MaybeSerializeDeserialize;
-    type ValueType: Default + Parameter + Member + Copy + BaseArithmetic;
+    type OracleId: Default
+        + Parameter
+        + Member
+        + Copy
+        + SimpleArithmetic
+        + MaybeSerializeDeserialize;
+    type ValueType: Default + Parameter + Member + Copy + SimpleArithmetic;
 }
 
 type Moment<T> = <T as timestamp::Trait>::Moment;
@@ -80,12 +84,9 @@ decl_error! {
     }
 }
 
-impl<T: Trait> From<InternalError> for Error<T>
-{
-    fn from(error: InternalError) -> Self
-    {
-        match error
-        {
+impl<T: Trait> From<InternalError> for Error<T> {
+    fn from(error: InternalError) -> Self {
+        match error {
             InternalError::FewSources(_exp, _act) => Error::<T>::NotEnoughSources,
             InternalError::FewPushedValue(_exp, _act) => Error::<T>::NotEnoughValues,
             InternalError::EmptyPushedValueInPeriod => Error::<T>::NotEnoughValues,
@@ -108,7 +109,7 @@ decl_module! {
         ///
         ///  * `name` - A raw string for identify oracle
         ///  * `source_limit` - Lower limit of the number of sources
-        ///  * `period` - Defines oracle work cycle. Period have aggregate and calculate part. 
+        ///  * `period` - Defines oracle work cycle. Period have aggregate and calculate part.
         ///  * `aggregate_period` - Part of period when sources can push values. The rest part of
         ///  period - `calculate_part` when we can calculate from pushed values.
         ///  * `asset_id` - Asset with the help of which voting is carried out in tablescore
@@ -162,7 +163,7 @@ decl_module! {
 
             if !oracle.period_handler.is_allow_aggregate(now)
             {
-                Err(Error::<T>::NotAggregationTime)?;
+                return Err(Error::<T>::NotAggregationTime.into());
             }
 
             Oracles::<T>::mutate(oracle_id, |oracle| {
@@ -178,9 +179,9 @@ decl_module! {
         }
 
         /// Calculate value in oracle
-        /// 
+        ///
         /// In order to calculate, you need some conditions:
-        /// - There must be a calculate period part or in the previous 
+        /// - There must be a calculate period part or in the previous
         /// calculate period part the value was not calculated
         /// - There are enough pushed values in oracle
         pub fn calculate(origin,
@@ -198,7 +199,7 @@ decl_module! {
 
             if !oracle.is_allow_calculate(value_id as usize, now).map_err(Error::<T>::from)?
             {
-                Err(Error::<T>::NotCalculateTime)?;
+                return Err(Error::<T>::NotCalculateTime.into());
             }
 
             let new_value = Oracles::<T>::mutate(oracle_id, |oracle| {
@@ -212,14 +213,10 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T>
-{
-    fn get_next_oracle_id() -> Result<T::OracleId, Error<T>>
-    {
-        OracleIdSequence::<T>::mutate(|id| match id.checked_add(&One::one())
-        {
-            Some(res) =>
-            {
+impl<T: Trait> Module<T> {
+    fn get_next_oracle_id() -> Result<T::OracleId, Error<T>> {
+        OracleIdSequence::<T>::mutate(|id| match id.checked_add(&One::one()) {
+            Some(res) => {
                 let result = *id;
                 *id = res;
                 Ok(result)
@@ -228,8 +225,7 @@ impl<T: Trait> Module<T>
         })
     }
 
-    fn update_accounts(oracle_id: T::OracleId) -> Result<Vec<AccountId<T>>, InternalError>
-    {
+    fn update_accounts(oracle_id: T::OracleId) -> Result<Vec<AccountId<T>>, InternalError> {
         Oracles::<T>::mutate(oracle_id, |oracle| {
             let table = tablescore::Module::<T>::tables(oracle.get_table());
             let accounts = oracle.update_sources(table.get_head().into_iter().cloned())?;
@@ -242,8 +238,7 @@ impl<T: Trait> Module<T>
     fn get_external_value(
         oracle_id: T::OracleId,
         value_id: usize,
-    ) -> Result<(T::ValueType, Moment<T>), Error<T>>
-    {
+    ) -> Result<(T::ValueType, Moment<T>), Error<T>> {
         Oracles::<T>::get(oracle_id)
             .values
             .get(value_id)
@@ -256,8 +251,7 @@ impl<T: Trait> Module<T>
         origin: T::Origin,
         oracle_id: T::OracleId,
         value_id: usize,
-    ) -> Result<(T::ValueType, Moment<T>), dispatch::DispatchError>
-    {
+    ) -> Result<(T::ValueType, Moment<T>), dispatch::DispatchError> {
         match Oracles::<T>::get(oracle_id)
             .values
             .get(value_id)
@@ -268,7 +262,7 @@ impl<T: Trait> Module<T>
             None => {
                 Self::calculate(origin, oracle_id, value_id as u8)?;
                 Ok(Self::get_external_value(oracle_id, value_id)?)
-            },
+            }
         }
     }
 }
